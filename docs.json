@@ -321,5 +321,22 @@
     "socials": {
       "github": "https://github.com/heygen-com/hyperframes"
     }
-  }
+  },
+  "metadata": {
+    "title": "HyperFrames 中文文档 | 用 HTML 渲染视频",
+    "description": "HyperFrames 中文文档 — 开源框架，使用 HTML、CSS 和可寻址动画创建确定性 MP4 视频。面向开发者和 AI 代理。",
+    "openGraph": {
+      "title": "HyperFrames 中文文档",
+      "description": "用 HTML 渲染视频。专为开发者和 AI 代理打造的开源视频生成框架。",
+      "type": "website",
+      "site_name": "HyperFrames 中文文档",
+      "locale": "zh_CN"
+    },
+    "twitter": {
+      "card": "summary_large_image",
+      "title": "HyperFrames 中文文档",
+      "description": "用 HTML 渲染视频。专为开发者和 AI 代理打造的开源视频生成框架。"
+    }
+  },
+  "head": "<script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@graph\":[{\"@type\":\"WebSite\",\"name\":\"HyperFrames 中文文档\",\"url\":\"https://docs.hyperframes-zh.cn\",\"description\":\"HyperFrames 开源框架的中文技术文档\",\"inLanguage\":\"zh-CN\",\"potentialAction\":{\"@type\":\"SearchAction\",\"target\":\"https://docs.hyperframes-zh.cn/search?q={search_term_string}\",\"query-input\":\"required name=search_term_string\"}},{\"@type\":\"Organization\",\"name\":\"HyperFrames\",\"url\":\"https://hyperframes.heygen.com\",\"sameAs\":[\"https://github.com/heygen-com/hyperframes\"]},{\"@type\":\"TechArticle\",\"headline\":\"HyperFrames 中文文档\",\"description\":\"使用 HTML、CSS 和可寻址动画创建确定性 MP4 视频的完整技术文档\",\"inLanguage\":\"zh-CN\",\"proficiencyLevel\":\"Beginner\",\"about\":{\"@type\":\"SoftwareApplication\",\"name\":\"HyperFrames\",\"applicationCategory\":\"Multimedia\",\"operatingSystem\":\"Cross-platform\"}}]}</script>"
 }
