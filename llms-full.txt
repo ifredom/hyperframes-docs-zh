@@ -1,0 +1,106 @@
+# HyperFrames 中文文档 — AI 全量内容
+# 站点: https://docs.hyperframes-zh.cn
+# 版本: 2026-06-05
+
+---
+
+## 一、核心页面全文
+
+### 介绍 (introduction)
+
+Hyperframes 是一个开源框架，可将 HTML 转换为确定性的、逐帧渲染的视频。
+
+三步工作流:
+1. 编写 HTML: `data-start`、`data-duration`、`data-track-index` 属性
+2. 预览: `npx hyperframes preview`，无需构建
+3. 渲染: `npx hyperframes render --output output.mp4`
+
+五大包: @hyperframes/core (类型/linter), @hyperframes/engine (无头 Chrome 捕获), @hyperframes/producer (渲染管道), @hyperframes/studio (可视化编辑器), CLI
+
+对 AI 代理: 纯 HTML，CLI 默认非交互式，所有输入通过标志
+
+### 核心概念: 合成 (compositions)
+
+根元素: `<div data-composition-id="root" data-start="0" data-width="1920" data-height="1080">`
+剪辑: `<video>`, `<img>`, `<audio>`, 嵌套 `<div data-composition-id="...">`
+嵌套: 外部文件 (`data-composition-src` + `<template>`) 或内联
+两层: HTML 声明层 + 脚本动画层
+变量: `data-composition-variables` → `data-variable-values` → `__hyperframes.getVariables()`
+
+### 核心概念: 数据属性
+
+- data-composition-id: 唯一标识符
+- data-composition-src: 外部文件路径
+- data-start / data-duration: 时序
+- data-track-index: 轨道索引
+- data-width / data-height: 分辨率
+- data-volume: 音量 (0-1)
+- data-variable-values: JSON 参数
+
+---
+
+## 二、完整页面索引
+
+### Docs (7): introduction | quickstart | showcase | examples | launch-videos | changelog | weekly-updates
+### Concepts (5): compositions | data-attributes | variables | frame-adapters | determinism
+### Guides (21): pipeline | html-in-canvas | website-to-video | antigravity | copilot-cli | claude-design | open-design | prompting | hyperframes-vs-remotion | gsap-animation | rendering | remove-background | hdr | 4k-rendering | performance | timeline-editing | video-editor-cheatsheet | common-mistakes | troubleshooting | feedback | deploy
+### Packages (6): cli | core | engine | player | producer | studio
+### Deploy (3): aws-lambda | migrating-to-hyperframes-lambda | templates-on-lambda
+### Contributing (6): contributing | catalog | release-channels | changelog-process | testing-local-changes | studio-manual-dom-editing
+### Community (1): adopters
+### Reference (1): html-schema
+
+---
+
+## 三、Catalog Blocks (86)
+
+### 着色器转场 (14)
+chromatic-radial-split | cinematic-zoom | cross-warp-morph | domain-warp-dissolve | flash-through-white | glitch | gravitational-lens | light-leak | ridged-burn | ripple-waves | sdf-iris | swirl-vortex | thermal-distortion | whip-pan
+安装: `npx hyperframes add <name>` | 类型: shader | 1920×1080 | 4秒
+
+### CSS 过渡 (13)
+transitions-3d | transitions-blur | transitions-cover | transitions-destruction | transitions-dissolve | transitions-distortion | transitions-grid | transitions-light | transitions-mechanical | transitions-other | transitions-push | transitions-radial | transitions-scale
+类型: CSS transition | 1920×1080 | 2-11秒
+
+### 社交叠加 (7)
+instagram-follow (1080×1920, 4s) | macos-notification | reddit-post | spotify-card | tiktok-follow (1080×1920, 4.5s) | x-post | yt-lower-third
+类型: overlay | 垂直或水平
+
+### 数据可视化 (7)
+data-chart | spain-map (D3 圆锥正形投影) | us-map | us-map-bubble | us-map-flow | us-map-hex | world-map
+
+### 代码片段主题 (24)
+Apple Terminal (12): basic, clear-dark, clear-light, grass, homebrew, man-page, novel, ocean, pro, red-sands, silver-aerogel, solid-colors
+VS Code/通用 (12): dark-2026, dark-modern, dark-plus, high-contrast, high-contrast-light, light-2026, light-modern, light-plus, monokai, solarized-light, visual-studio-dark, visual-studio-light
+
+### 液态玻璃/UI (13)
+ios26-liquid-glass | liquid-glass-context-menu | liquid-glass-media-controls | liquid-glass-notification | liquid-glass-widgets | macos-tahoe-liquid-glass | vfx-iphone-device (GLTF 3D) | vfx-liquid-background | vfx-magnetic | vfx-portal | vfx-shatter | vfx-text-cursor | ui-3d-reveal
+
+### 展示 (7)
+app-showcase | apple-money-count | blue-sweater-intro-video | north-korea-locked-down | nyc-paris-flight | vpn-youtube-spot | logo-outro
+
+### 其他 (2)
+flowchart | logo-outro
+
+---
+
+## 四、Catalog Components (23)
+
+### 字幕 (16)
+caption-blend-difference | caption-clip-wipe | caption-editorial-emphasis | caption-emoji-pop | caption-glitch-rgb | caption-gradient-fill | caption-highlight | caption-kinetic-slam | caption-matrix-decode | caption-neon-accent | caption-neon-glow | caption-parallax-layers | caption-particle-burst | caption-pill-karaoke | caption-texture | caption-weight-shift
+
+### 效果/叠加 (7)
+grain-overlay | grid-pixelate-wipe | parallax-unzoom | parallax-zoom | shimmer-sweep | texture-mask-text | vignette
+
+---
+
+## 五、技术规格
+
+- 渲染: 最高 4K (3840×2160) Chrome deviceScaleFactor 超采样
+- HDR: BT.2020 PQ / HLG, 10-bit H.265
+- 输出: MP4, MOV, WebM
+- 动画: GSAP, CSS, Lottie, Three.js, Anime.js, WAAPI
+- 环境: Node.js 22+, FFmpeg
+- 许可: Apache 2.0
+- CDN: Cloudflare
+- 上游: https://github.com/heygen-com/hyperframes
