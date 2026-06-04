@@ -1,0 +1,237 @@
+---
+title: HTML 架构参考
+description: "有关创作超框架 HTML 组合的完整参考。"
+---
+
+这是超框架合成的完整架构参考。有关更温和的介绍，请参阅[组合](/concepts/compositions) 和[数据属性](/concepts/data-attributes)。
+
+## 概述
+
+Hyperframes 使用 HTML 作为描述视频的真实来源：
+
+- **HTML 剪辑** = 视频、图像、音频、合成
+- **[数据属性](/concepts/data-attributes)** = 时间、元数据、样式
+- **CSS** = 定位和外观
+- **GSAP 时间线** = 动画和播放同步（请参阅 [GSAP 动画](/guides/gsap-animation)）
+
+## 框架管理的行为
+
+框架读取数据属性并自动管理：
+
+- **原始剪辑时间线条目** — 从剪辑中读取 `data-start`、`data-duration` 和 `data-track-index` 并将它们添加到 GSAP 时间线
+- **媒体播放**（播放、暂停、搜索）用于 `<video>` 和 `<audio>`
+- **剪辑生命周期** — 剪辑根据 `data-start` 和 `data-duration` 安装/卸载
+- **时间线同步** — 保持媒体与 GSAP 主时间线同步
+- **媒体加载** — 在解析计时之前等待所有媒体加载
+
+安装/卸载控制**存在**，而不是外观。过渡（淡入、滑入）在脚本中以动画形式呈现。
+
+<Warning>
+  请勿在脚本中手动调用 `video.play()`、`video.pause()`、设置 `audio.currentTime` 或安装/卸载剪辑。该框架拥有媒体播放和剪辑生命周期。有关更多详细信息，请参阅[常见错误](/guides/common-mistakes)。
+</Warning>
+
+## 视口
+
+每个组合都必须在根元素上包含 `data-width` 和 `data-height`：
+
+```html
+<div id="main" data-composition-id="my-video"
+     data-start="0" data-width="1920" data-height="1080">
+  <!-- clips -->
+</div>
+```
+
+常见尺寸：
+- **景观**：`data-width="1920" data-height="1080"`
+- **肖像**：`data-width="1080" data-height="1920"`
+
+## 所有剪辑属性
+
+| 属性 | 适用于 | 必需的 | 描述 |
+|-----------|-----------|----------|-------------|
+| `id` | 全部 | 是的 | 唯一标识符（例如 `"el-1"`）。用于相对计时参考和 CSS 定位。 |
+| `class="clip"` | 可见元素 | 是的 | 启用运行时可见性管理。对于纯音频剪辑，请省略。 |
+| `data-start` | 全部 | 是的 | 开始时间（以秒为单位）（例如 `"0"`、`"5.5"`），或 [相对计时](#relative-timing) 的剪辑 ID 参考（例如 `"intro"`）。 |
+| `data-duration` | 视频、图像、音频 | 见下文 | 持续时间（以秒为单位）。 **对于图像来说是必需的**。对于视频/音频可选（默认为源持续时间）。不用于组合物。 |
+| `data-track-index` | 全部 | 是的 | 时间线轨道编号。控制 z 顺序（较高 = 在前面）。同一轨道上的剪辑不能重叠。 |
+| `data-media-start` | 视频、音频 | 不 | 源文件中的播放偏移/修剪点（秒）。默认值：`0`。请参阅[数据属性](/concepts/data-attributes)。 |
+| `data-volume` | 音频、视频 | 不 | 音量级别从 `0` 到 `1`。默认值：`1`。 |
+| `data-composition-id` | 分区 | 论作文 | 唯一的成分 ID。必须与 `window.__timelines` 中使用的密钥匹配。 |
+| `data-composition-src` | 分区 | 不 | 外部合成 HTML 文件的路径（对于 [嵌套合成](#composition-clips)）。 |
+| `data-variable-values` | 分区 | 不 | 传递给嵌套组合的值的 JSON 对象。框架会传递这些值，但您的组合脚本必须手动读取并应用它们。 |
+| `data-width` | 分区 | 论作文 | 合成宽度（以像素为单位）。 |
+| `data-height` | 分区 | 论作文 | 构图高度（以像素为单位）。 |
+
+## 剪辑类型
+
+<AccordionGroup>
+  <Accordion title="视频剪辑">
+    视频剪辑嵌入具有计时和播放属性的 `<video>` 元素。
+
+    ```html
+    <video
+      id="el-1"
+      data-start="0"
+      data-duration="15"
+      data-track-index="0"
+      data-media-start="0"
+      src="./assets/video.mp4"
+    ></video>
+    ```
+
+    **关键行为：**
+    - `data-duration` 是 **可选** — 默认为 `data-media-start` 中源文件的剩余持续时间
+    - 如果源媒体在 `data-duration` 之前用完，则剪辑将显示最后一帧（冻结帧）
+    - `data-media-start` 修剪源视频的开头 — `data-media-start="5"` 在源文件中开始播放 5 秒
+    - `data-volume` 控制视频的音频音量 — 对于无声视频，设置为 `"0"`
+    - **不要**将 `class="clip"` 添加到视频元素 - 框架直接管理它们的可见性
+
+    <Warning>
+      请勿使用 GSAP 直接在 `<video>` 元素上对 `width`、`height`、`top` 或 `left` 进行动画处理。这可能会导致 Chrome 停止渲染视频帧。将视频包装在 `<div>` 中并为包装器设置动画。请参阅[常见错误](/guides/common-mistakes)。
+    </Warning>
+  </Accordion>
+
+  <Accordion title="图像剪辑">
+    图像剪辑以受控的时序显示静态图像。
+
+    ```html
+    <img
+      id="el-2"
+      class="clip"
+      data-start="5"
+      data-duration="4"
+      data-track-index="1"
+      src="./assets/overlay.png"
+    />
+    ```
+
+    **关键行为：**
+    - `data-duration` 对于图像来说是**必需的**（与视频/音频不同，没有默认的源持续时间）
+    - `class="clip"` 是**必需的** — 这使得运行时能够根据时间显示/隐藏图像
+    - 支持的格式：PNG、JPG、WebP、SVG、GIF（仅限第一帧）
+    - CSS 的位置和大小 — 图像以其自然大小呈现，除非另有样式
+  </Accordion>
+
+  <Accordion title="音频剪辑">
+    音频剪辑在没有任何视觉元素的情况下为作品添加声音。
+
+    ```html
+    <audio
+      id="el-4"
+      data-start="0"
+      data-duration="30"
+      data-track-index="2"
+      src="./assets/music.mp3"
+    ></audio>
+    ```
+
+    **关键行为：**
+    - `data-duration` 是 **可选** — 默认为 `data-media-start` 中源文件的剩余持续时间
+    - 音频剪辑是不可见的 - 不要添加 `class="clip"` （没有什么可以显示/隐藏）
+    - `data-volume` 控制音量 — 使用 `"0.5"` 控制 50% 音量的背景音乐
+    - `data-media-start` 修剪音频源的开头，就像视频一样
+    - 多个音频剪辑可以重叠在不同的轨道上，以实现分层声音设计
+  </Accordion>
+
+  <Accordion title="合成剪辑（嵌套）">
+    合成剪辑将一个合成嵌入到另一个合成中，从而实现模块化、可重复使用的视频构建块。
+
+    ```html
+    <div
+      id="el-5"
+      data-composition-id="intro-anim"
+      data-composition-src="compositions/intro-anim.html"
+      data-start="0"
+      data-track-index="3"
+    ></div>
+    ```
+
+    **关键行为：**
+    - 合成**不**使用 `data-duration` — 持续时间由合成的 GSAP 时间轴 (`tl.duration()`) 决定
+    - 外部组合从 `data-composition-src` 加载并包装在 `<template>` 标签中
+    - 每个嵌套组合都有自己的 `window.__timelines` 条目，由其自己的 `<script>` 块注册
+    - 框架自动嵌套子时间线 - 不要手动将它们添加到父时间线
+    - 任何组合都可以嵌套在任何其他组合中 - 没有特殊的“根”类型
+    - 每个实例的值可以使用 `data-variable-values` 传递，但嵌套组合必须自己读取并应用这些值
+
+    有关组合如何工作的更多信息，请参阅[组合](/concepts/compositions)。
+  </Accordion>
+</AccordionGroup>
+
+## 相对时序
+
+在 `data-start` 中引用另一个剪辑的 ID 表示“当该剪辑结束时开始”：
+
+```html
+<video id="intro" data-start="0" data-duration="10" data-track-index="0" src="..."></video>
+<video id="main" data-start="intro" data-duration="20" data-track-index="0" src="..."></video>
+```
+
+`main` 从第 10 秒开始（当 `intro` 结束时）。
+
+**偏移**允许您添加间隙或重叠：
+
+```html
+<!-- 2-second gap after intro -->
+<video id="main" data-start="intro + 2" data-duration="20" data-track-index="0" src="..."></video>
+
+<!-- 0.5-second overlap with intro -->
+<video id="main" data-start="intro - 0.5" data-duration="20" data-track-index="0" src="..."></video>
+```
+
+有关更深入的解释，请参阅数据属性概念页面中的[相对时序部分](/concepts/data-attributes#relative-timing)。
+
+## 时间表合同
+
+框架在任何脚本运行之前初始化 `window.__timelines = {}`。每个作品都必须在与其 `data-composition-id` 匹配的键处注册一个 GSAP 时间线：
+
+```javascript
+const tl = gsap.timeline({ paused: true });
+
+// Add animations
+tl.to("#title", { opacity: 1, duration: 0.5 }, 0);
+tl.to("#title", { opacity: 0, duration: 0.5 }, 4.5);
+
+// Register the timeline
+window.__timelines["<data-composition-id>"] = tl;
+```
+
+### 规则
+
+- 每个作品都需要一个 `<script>` 块来创建和注册其时间线
+- 所有时间线必须开始暂停 (`{ paused: true }`)
+- 框架自动将子时间线嵌套到父时间线中 - **不要**手动添加它们
+- 持续时间来自 `tl.duration()` — 不要**在组合元素上添加 `data-duration`
+- 时间线必须是有限的（没有无限循环或重复）
+- 时间线 ID 必须与根元素上的 `data-composition-id` 属性完全匹配
+
+有关使用 GSAP 时间线的完整指南，请参阅 [GSAP 动画](/guides/gsap-animation)。
+
+## 字幕可发现性
+
+对于字幕合成，将这些属性添加到根节点，以便框架可以识别和特殊情况的字幕渲染：
+
+```html
+<div
+  data-composition-id="captions"
+  data-timeline-role="captions"
+  data-caption-root="true"
+  ...
+>
+```
+
+## 输出清单
+
+<Check>
+  在渲染之前，验证您的构图是否满足以下要求：
+
+  - 每个组合的根元素上都有 `data-width` 和 `data-height`
+  - 每个可重复使用的组合都位于其自己的 HTML 文件中
+  - 外部合成通过 `data-composition-src` 加载
+  - 每个外部组合文件都使用 `<template>` 包装器
+  - 所有 GSAP 时间线均使用正确的 ID 在 `window.__timelines` 中注册
+  - 定时可见元素（图像、div）具有 `class="clip"`
+  - 视频元素**没有**具有`class="clip"`（框架直接管理它们）
+  - 所有 `data-start` 引用都指向现有剪辑 ID
+  - 运行 `npx hyperframes lint` 自动捕获结构问题
+</Check>

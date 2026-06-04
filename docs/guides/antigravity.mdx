@@ -1,0 +1,150 @@
+---
+title: 谷歌反重力
+description: "在 Google Antigravity 中设置 HyperFrames — 安装技能、创作作品并从代理优先 IDE 渲染视频。"
+---
+
+Google Antigravity 是 Google 基于 VS Code 构建的代理优先 IDE。它的代理会根据您的提示自动发现并加载 HyperFrames 技能，因此您无需记住框架内部结构即可获得正确的构图。
+
+## 安装技巧
+
+将 HyperFrames 技能包安装到您的项目中：
+
+```bash
+npx skills add heygen-com/hyperframes
+```
+
+这会将技能目录放置在工作区根目录下的 `.agents/skills/` 内 - 反重力扫描工作区范围内的技能的位置。
+
+<Tip>
+  如果您希望所有反重力项目都可以使用这些技能，请将它们安装到全局范围：
+
+  ```bash
+  npx skills add heygen-com/hyperframes --agent antigravity --global
+  ```
+
+  全球技能存在于 `~/.gemini/antigravity/skills/` 中并加载到每个工作区中。
+</Tip>
+
+验证技能是否已安装：
+
+```bash
+ls .agents/skills/
+```
+
+您应该看到 `hyperframes/`、`hyperframes-cli/`、`gsap/`、`tailwind/` 等目录，每个目录都包含代理按需读取的 `SKILL.md`。
+
+## 反重力中的技能如何发挥作用
+
+反重力使用**语义匹配** - 当您键入提示时，代理会将其与每个可用技能的 `description` 字段进行比较，并加载相关的技能。您不需要使用斜杠命令调用技能（尽管您可以通过名称引用它们以确保精确）。
+
+| 你说 | 代理负载 |
+|---|---|
+| “创建一个带有标题的 10 秒产品介绍” | `hyperframes`、`hyperframes-cli` |
+| “在标题中添加 GSAP 比例流行” | `gsap` |
+| “使用 Tailwind 进行造型” | `tailwind` |
+| “转录此音频并添加字幕” | `hyperframes-media` |
+| “添加微光扫描过渡” | `hyperframes-registry` |
+
+该技能仅在匹配时才会注入到代理的上下文窗口中 - 这可以保持上下文干净且集中。
+
+<Note>
+  为了获得最佳结果，请在提示中提及“HyperFrames”或“composition”，以便代理立即匹配正确的技能，而不是猜测通用的网络视频约定。
+</Note>
+
+## 创建并预览视频
+
+<Steps>
+  <Step title="搭建一个项目">
+    打开 Antigravity 的集成终端并运行：
+
+    ```bash
+    npx hyperframes init my-video
+    cd my-video
+    ```
+
+    该向导将引导您完成示例选择和媒体导入。技能会自动安装在新项目中。
+  </Step>
+
+  <Step title="启动预览服务器">
+    ```bash
+    npx hyperframes preview
+    ```
+
+    这将在您的浏览器中启动具有热重载功能的 HyperFrames Studio — 对 `index.html` 的编辑会立即出现。
+  </Step>
+
+  <Step title="提示代理">
+    在 Antigravity 的代理侧栏中，描述您想要的视频：
+
+    > 为我的 SaaS 应用程序创建 15 秒的黑暗主题产品介绍，其中包含淡入标题、炒作风格的字幕以及到 CTA 的快速过渡。
+
+    代理读取 HyperFrames 技能，使用 `data-*` 属性和 GSAP 时间线编写有效的 HTML，并将其保存到您的项目文件中。预览会自动更新。
+  </Step>
+
+  <Step title="迭代">
+    像视频编辑器一样与代理交谈 - 不要从头开始重新提示：
+
+    > 将标题放大 2 倍，并将过渡切换为快速平移。
+
+    > 在 0:03 添加下三分之一，写上我的名字。
+
+    > 将背景替换为 asset/hero.mp4。
+  </Step>
+
+  <Step title="使成为">
+    ```bash
+    npx hyperframes render --output output.mp4
+    ```
+  </Step>
+</Steps>
+
+## 在管理器视图中使用多个代理
+
+Antigravity 的 [管理器视图](https://antigravity.google/docs/agent) 可让您并行编排多个代理。对于复杂的多场景视频，可以分工：
+
+- **特工 1：** 创作介绍场景和转场
+- **代理 2：** 生成 TTS 旁白和字幕计时
+- **代理3：**构建数据可视化场景
+
+每个代理独立学习相关的 HyperFrames 技能。当所有代理完成时，将输出合并到具有 `data-composition-src` 引用的单个 `index.html` 中。
+
+## MCP 替代方案
+
+如果您喜欢零安装云创作，Antigravity 支持远程 MCP 服务器。添加 HyperFrames MCP 连接器以在不使用 CLI 的情况下创作和渲染合成 — 请参阅 [Antigravity 的 MCP 文档](https://antigravity.google/docs/mcp) 了解您版本中的确切设置步骤，然后使用服务器 URL：
+
+```
+https://mcp.heygen.com/mcp/hyperframes
+```
+
+出现提示时，使用您的 HeyGen 帐户通过 OAuth 进行授权。有关工具和提示的完整详细信息，请参阅 [HyperFrames MCP 指南](/guides/mcp)。 MCP 处理云端渲染； CLI 为您提供本地控制。
+
+## 代理指令文件
+
+使用 `npx hyperframes init` 支架自动创建 `CLAUDE.md` 和 `AGENTS.md` 的 HyperFrames 项目 — 这些为代理提供了超出技能提供范围的额外组合上下文。
+
+- **`AGENTS.md`** — 跨代理约定。无论您选择哪种模型（双子座、克劳德或其他模型），反重力都会读取此内容。
+- **`CLAUDE.md`** — 当 Antigravity 的代理使用 Claude 模型（Sonnet 或 Opus）时读取，提供 Claude 特定的项目说明。
+
+## 尖端
+
+- **当精度很重要时，请按名称提及技能。** 当代理加载了许多技能时，“使用HyperFrames技能，添加颗粒覆盖”比“添加颗粒覆盖”更可靠。
+- **在渲染之前使用 `npx hyperframes lint`。** linter 会捕获代理在复杂编辑时可能会错过的结构问题（缺少 `class="clip"`、未注册的时间线、静音视频违规）。
+- **安装注册表块以获得高级效果。**运行 `npx hyperframes add shimmer-sweep` 安装预构建块，然后要求代理将它们连接到您的作品中。
+- **保持预览服务器运行。** Antigravity 的文件观察器 + HyperFrames 的热重载意味着您​​可以实时看到每个代理的编辑。
+
+## 后续步骤
+
+<CardGroup cols={2}>
+  <Card title="提示指南" icon="message" href="/guides/prompting">
+    产生更好作品的词汇和模式。
+  </Card>
+  <Card title="目录" icon="grid-2" href="/catalog/blocks/data-chart">
+    代理可以安装和连接 50 多个即用型块。
+  </Card>
+  <Card title="GSAP动画" icon="wand-magic-sparkles" href="/guides/gsap-animation">
+    运动原理和时间轴创作。
+  </Card>
+  <Card title="管道指南" icon="list-check" href="/guides/pipeline">
+    对于多节拍视频，遵循 7 步结构代理。
+  </Card>
+</CardGroup>

@@ -1,0 +1,148 @@
+---
+title: 克劳德设计
+description: "在 Claude Design 中创建 HyperFrames 视频草稿，然后在任何 AI 编码智能体中进行优化。"
+---
+
+Claude Design 制作了 HyperFrames 视频的**有效初稿** — 品牌标识、场景内容、布局、动画和过渡。然后，您可以下载 ZIP 并在任何 AI 编码智能体（Claude Code、Cursor、Codex、Windsurf 等）中通过 linting 和实时预览进行优化。
+
+## 开始使用
+
+<Steps>
+  <Step title="下载说明文件">
+    在 GitHub 上打开 [`claude-design-hyperframes.md`](https://github.com/heygen-com/hyperframes/blob/main/docs/guides/claude-design-hyperframes.md) 并单击下载按钮 (↓) 进行保存。
+  </Step>
+  <Step title="开放克劳德设计">
+    在 [claude.ai/design](https://claude.ai/design) 开始新的聊天。
+  </Step>
+  <Step title="附上文件+描述您的视频">
+    将 `claude-design-hyperframes.md` 文件拖到聊天中。描述您想要什么 - 包括屏幕截图、品牌资产或调色板（如果有的话）。
+  </Step>
+  <Step title="下载 ZIP 文件">
+    Claude Design 生产 `index.html`、`preview.html`、`README.md` 和 `DESIGN.md`。下载 ZIP。
+  </Step>
+  <Step title="在任何 AI 编码智能体中进行优化">
+    在 Claude Code、Cursor、Codex 或任何具有终端访问权限的代理中打开项目，以进行动画打磨、计时和制作 QA。
+    ```bash
+    npx skills add heygen-com/hyperframes   # install skills (one-time)
+    npx hyperframes lint                     # should pass with zero errors
+    npx hyperframes preview                  # open the studio
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  **附加文件，不要粘贴 URL。** Claude Design 本机读取文件附件并保留详细信息。 URL 驱动的运行会产生可用的输出，但始终会错过更多规则。
+</Tip>
+
+## 使用哪种设置
+
+| 表面                     | 推荐设置                                                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 克劳德设计               | 从 GitHub 下载 [`claude-design-hyperframes.md`](https://github.com/heygen-com/hyperframes/blob/main/docs/guides/claude-design-hyperframes.md) 并附加到您的聊天中 |
+| 克劳德·科德                 | `npx skills add heygen-com/hyperframes`，然后使用 `/hyperframes`                                                              |
+| 光标/Codex/Gemini CLI | `npx skills add heygen-com/hyperframes`                                                                                       |
+
+## 它是如何运作的
+
+指令文件为 Claude Design 提供了**预有效的 HTML 骨架** — 结构规则（数据属性、时间轴注册、场景可见性、预览令牌转发）已经嵌入。 Claude Design填写创意作品：
+
+1. **调色板 + 排版** — `:root` 上的 CSS 自定义属性
+2. **场景内容** — `.scene-content` 包装器内的文本、图像、布局
+3. **动画** — GSAP 入口补间和场景中活动
+4. **过渡** — 对大多数场景进行硬剪辑，在 2-3 个关键时刻进行着色器过渡
+
+这种模板优先的方法意味着输出在首次下载时以零错误的方式通过 `npx hyperframes lint` — 您的编码代理可以立即开始精炼，而无需进行结构修复。
+
+## 提示示例
+
+<CardGroup cols={1}>
+  <Card title="功能公告">
+    ```text
+    Use the attached file. I just shipped dark mode for my app. Make me a
+    15-second Instagram reel announcing it.
+
+    - App name: Taskflow
+    - Primary color: #6C5CE7
+    - The vibe is clean, minimal, dark
+    - Key stat: "47% of users requested this"
+    ```
+  </Card>
+  <Card title="创始人推介">
+    ```text
+    Use the attached file. 25-second LinkedIn video for my startup.
+
+    Problem: Sales teams waste 3 hours/day on manual CRM updates.
+    Solution: AutoCRM — AI that logs every call, email, and meeting.
+    Traction: 200+ teams, $1.2M ARR, 18% MoM growth.
+    CTA: autocrmhq.com
+
+    Professional but not corporate. Think Linear or Vercel energy.
+    ```
+  </Card>
+  <Card title="统计突出显示">
+    ```text
+    Use the attached file. 10-second reel. Just one big number:
+
+    "$4.2 billion processed in Q1 2026"
+
+    Dark background, the number should animate up from zero. Subtle,
+    confident. End with logo placeholder and "stripe.com"
+    ```
+  </Card>
+  <Card title="稀疏简短（让它问）">
+    ```text
+    Use the attached file. Make a 30-second launch video for Orbit.
+    ```
+
+    这些说明告诉 Claude Design 在生成之前询问一个简短的澄清问题。
+  </Card>
+</CardGroup>
+
+## 提示中应包含哪些内容
+
+Claude Design 按可靠性顺序读取输入：**附件 > 粘贴内容 > 网络研究 > URL**。
+
+| 输入类型 | 它给克劳德设计带来了什么 |
+| --- | --- |
+| 屏幕截图/PDF/品牌指南 | 调色板、排版、UI 模式、色调——最强来源 |
+| 粘贴的十六进制代码、字体、副本 | 所涵盖内容具有权威性 |
+| 品牌名称（知名） | Claude Design 可以研究博客、媒体、维基百科 |
+| SPA URL（React/Vue 主页） | 返回近乎空的外壳——转向博客/新闻 |
+
+您的提示越具体，输出就越好。如果有的话，请包括调色板、字体、持续时间和场景创意。
+
+## 已知的限制
+
+- **窗格内预览** — 在 Claude Design 的 iframe 沙箱中，清理不可靠。在本地下载并使用 `npx hyperframes preview` 以实现可靠播放。
+- **无 linting** — Claude Design 无法运行 `npx hyperframes lint`。模板优先的骨架处理结构有效性，但自我审查清单是下载前唯一的质量检查。
+- **着色器可在任何纵横比下工作** — 垂直 (1080x1920)、横向 (1920x1080) 和方形 (1080x1080) 均受支持。
+- **3 次获取限制** — Claude Design 限制每回合的网络获取。所有关键规则均已内联；外部参考仅适用于边缘情况。
+- **向后查找** - 在窗格内预览中向后拖动可以显示空白帧。前向搜索通常有效。
+
+## 移交给您的编码代理
+
+克劳德设计公司的输出是有效的初稿。在 Claude Code、Cursor、Codex 或任何具有终端访问权限的 AI 编码智能体中打开它：
+
+```bash
+npx skills add heygen-com/hyperframes   # one-time setup
+npx hyperframes lint                     # verify structure
+npx hyperframes preview                  # open the studio
+```
+
+然后迭代：
+
+- “让场景 3 的入口更加快捷”
+- “在场景 5 的统计数据中添加计数器动画”
+- “加快节奏——场景 4 和 6 感觉太长了”
+- “将过渡 2 上的着色器更改为故障”
+
+## 后续步骤
+
+<CardGroup cols={2}>
+  <Card title="提示指南" icon="message" href="/guides/prompting">
+    Claude Code、Claude Design 和其他代理的 HyperFrames 的更多提示模式。
+  </Card>
+  <Card title="@hyperframes/玩家" icon="play" href="/packages/player">
+    将乐曲嵌入到官方播放器组件中。
+  </Card>
+</CardGroup>

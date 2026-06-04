@@ -1,0 +1,254 @@
+---
+title: 变量
+description: "参数化组合，以便同一源可以呈现不同的内容。"
+---
+
+变量让您可以在合成中声明命名的、类型化的槽，并在渲染时填充它们——从父合成、CLI 或 API 调用。采用 `title` 和 `color` 的卡片组合可以使用一百种不同的值嵌入一百次，而无需复制任何 HTML。
+
+## 声明变量
+
+将 `data-composition-variables` 添加到任何组合的 `<html>` 根。它的值是一个变量声明的 JSON 数组——每个变量一个对象：
+
+```html compositions/card.html
+<html data-composition-variables='[
+  {"id":"title",  "type":"string",  "label":"Title",  "default":"Hello"},
+  {"id":"color",  "type":"color",   "label":"Color",  "default":"#111827"},
+  {"id":"price",  "type":"number",  "label":"Price",  "default":0,        "unit":"$"},
+  {"id":"featured","type":"boolean","label":"Featured","default":false},
+  {"id":"plan",   "type":"enum",    "label":"Plan",   "default":"pro",
+   "options":[{"value":"pro","label":"Pro"},{"value":"enterprise","label":"Enterprise"}]}
+]'>
+```
+
+每个声明都需要四个字段：`id`、`type`、`label` 和 `default`。 `id` 在组合中必须是唯一的。
+
+## 变量类型
+
+| 类型 | `default` 值 | 额外选项 |
+|------|----------------|---------------|
+| `string` | `"some text"` | `placeholder?: string`、`maxLength?: number` |
+| `number` | `0` | `min?: number`、`max?: number`、`step?: number`、`unit?: string` |
+| `color` | `"#rrggbb"` | — |
+| `boolean` | `true` / `false` | — |
+| `enum` | 选项值之一 | `options: [{value: string, label: string}]` |
+
+Studio 编辑 UI 使用 `label`、`type` 和特定于类型的选项来为每个变量呈现正确的输入小部件。
+
+## 什么可以是变量
+
+变量分为两层。上面的五个[声明类型](#variable-types)涵盖了类型化的原始数据——字符串、数字、颜色、布尔值、枚举。对于其他一切，保存 URL 的 `string` 变量是逃生舱口：您的组合读取 URL 并将其分配给任何需要它的 DOM 元素。
+
+### 参数化媒体资产
+
+只需通过字符串变量交换 URL，相同的组合就可以呈现不同的图像、视频剪辑或音轨：
+
+```html compositions/product-card.html
+<html data-composition-variables='[
+  {"id":"productImage","type":"string","label":"Product image URL","default":"https://cdn.example.com/products/default.png"},
+  {"id":"productName","type":"string","label":"Product name","default":"Untitled"}
+]'>
+  <body>
+    <div data-composition-id="product-card" data-width="1920" data-height="1080" data-duration="5">
+      <img class="product-img" alt="" />
+      <h1 class="product-name"></h1>
+
+      <script>
+        const {
+          productImage = "https://cdn.example.com/products/default.png",
+          productName = "Untitled",
+        } = __hyperframes.getVariables();
+        const root = document.querySelector('[data-composition-id="product-card"]');
+        root.querySelector(".product-img").src = productImage;
+        root.querySelector(".product-name").textContent = productName;
+      </script>
+    </div>
+  </body>
+</html>
+```
+
+<Note>
+运行时在合成脚本运行后探测 DOM，因此会发现运行时从变量分配的 `<video>` 或 `<audio>` `src` 并预先提取以进行渲染。无需额外接线 - 只需从变量中设置 `src` 即可。
+</Note>
+
+相同的模式涵盖三种媒体元素类型：
+
+- **`<img src>`** — 从字符串变量分配。 Chrome 在捕获过程中像任何其他图像一样获取它；没有额外的配置。
+- **`<video src>`** — 从字符串变量分配，但将计时属性（`data-start`、`data-duration`、`data-track-index`、`data-has-audio`）保留在元素本身上。探测阶段在脚本运行后扫描 `video[data-start]` 元素并读取已解析的 `src` 进行预提取。
+- **`<audio src>`** — 与视频相同。音频在捕获期间被解码并混合到最终输出中。
+
+将资产作为 URL 引用传递，您的合成在渲染时解析；不要内联base64。 URL 形状的资产可以干净地通过本地渲染器和 Lambda 表面 - 请参阅 [Lambda 上的模板](/deploy/templates-on-lambda#working-with-large-variables) 了解分布式渲染上的 256 KiB 执行输入上限。
+
+### 交换媒体：您是否也需要改变持续时间？
+
+常见的后续问题：如果变量将 `<video>` 交换到不同的剪辑，那么 `data-duration` 也需要更改吗？通常不会。 `data-duration` 在 `<video>` 和 `<audio>` 上是可选的 — 将其保留，渲染器将探测源并使用其自然长度：
+
+```html compositions/hero.html
+<video id="hero" data-start="0" data-track-index="0"></video>
+<script>
+  document.getElementById("hero").src = __hyperframes.getVariables().heroVideo;
+</script>
+```
+
+如果您需要将剪辑固定或固定到每次渲染的特定长度（例如，为了在不同源长度的剪辑之间保持下游时序稳定），请将持续时间公开为其自己的 `number` 变量，并通过相同的脚本应用它：
+
+```html compositions/hero.html
+<video id="hero" data-start="0" data-track-index="0"></video>
+<script>
+  const { heroVideo, heroDuration } = __hyperframes.getVariables();
+  const el = document.getElementById("hero");
+  el.src = heroVideo;
+  if (heroDuration !== undefined) {
+    el.setAttribute("data-duration", String(heroDuration));
+  }
+</script>
+```
+
+脚本运行后，探测阶段会从实时 DOM 读取 `data-duration` ，因此以编程方式编写的属性的行为与嵌入到源 HTML 中的属性相同。
+
+## 什么不能是变量
+
+从源 HTML 或 CLI / SDK 读取一小组输入一次，无需重新读取实时 DOM — 没有脚本（因此没有变量）可以更改它们：
+
+| 什么 | 机制（不是变量） |
+|------|----------------------------|
+| 组成尺寸 | 组合元素上的 `data-width` / `data-height` — 在编译时从源 HTML 解析，而不是从实时 DOM 解析 |
+| 帧率 | SDK 中 `hyperframes render` 或 `config.fps` 上的 `--fps` 标志 |
+| 输出格式/编解码器/质量 | `--format` / `--codec` / `--quality` 标志，或 SDK 等效项 |
+| 同级或父级组合的变量 | 变量是针对每个组合的；在每个子组件主机元素上使用 [`data-variable-values`](#per-instance-overrides-sub-compositions) 来传递覆盖 |
+
+更深层次的规则：变量是脚本应用于 DOM 的运行时值。它们可以在脚本运行后驱动渲染器从实时 DOM 读取的任何内容 - 文本、颜色、媒体 `src`，甚至剪辑 `data-duration` 如上所示。它们无法更改渲染器在编译时读取一次的输入（维度）或完全位于合成之外的输入（CLI 标志、编码器设置）。
+
+## 在运行时读取变量
+
+在任何组合脚本中，调用 `window.__hyperframes.getVariables()` 来获取解析的变量值。返回类型为 `Partial<Record<string, unknown>>` — 使用解构，默认值与声明的 `default` 值匹配：
+
+```html compositions/card.html
+<html data-composition-variables='[
+  {"id":"title","type":"string","label":"Title","default":"Untitled"},
+  {"id":"color","type":"color","label":"Color","default":"#111827"}
+]'>
+  <body>
+    <div data-composition-id="card" data-width="1920" data-height="1080">
+      <h1 class="card-title"></h1>
+
+      <style>
+        [data-composition-id="card"] { --card-color: #111827; }
+        [data-composition-id="card"] .card-title { color: var(--card-color); }
+      </style>
+
+      <script>
+        const { title = "Untitled", color = "#111827" } = __hyperframes.getVariables();
+        const root = document.querySelector('[data-composition-id="card"]');
+        root.querySelector(".card-title").textContent = title;
+        root.style.setProperty("--card-color", color);
+      </script>
+    </div>
+  </body>
+</html>
+```
+
+`__hyperframes.getVariables()` 是 `window.__hyperframes.getVariables()` 的简写形式，适用于顶级和子组合脚本。运行时会自动确定子组合的范围，以便每个实例都能看到自己的解析值。
+
+## 每个实例覆盖（子组合）
+
+将组合嵌入另一个组合时，请在主机元素上使用 `data-variable-values` 来传递该特定实例的覆盖值的 JSON 对象：
+
+```html index.html
+<div
+  data-composition-id="card-pro"
+  data-composition-src="compositions/card.html"
+  data-start="0"
+  data-track-index="1"
+  data-variable-values='{"title":"Pro","color":"#ff4d4f"}'
+></div>
+<div
+  data-composition-id="card-enterprise"
+  data-composition-src="compositions/card.html"
+  data-start="card-pro"
+  data-track-index="1"
+  data-variable-values='{"title":"Enterprise","color":"#22c55e"}'
+></div>
+```
+
+两个主机元素都指向相同的 `card.html` 源，但每个实例接收不同的值。运行时将主机的 `data-variable-values` 合并到每个实例的子组合声明的默认值上 - 相同的子组合可以同时运行完全不同的内容。
+
+## CLI 覆盖（顶级渲染）
+
+在渲染时使用 `--variables` 或 `--variables-file` 传递变量值。这些覆盖顶级组合声明的默认值：
+
+```bash Terminal
+# Inline JSON
+npx hyperframes render --variables '{"title":"Q4 Report","color":"#1d4ed8"}' --output q4.mp4
+
+# JSON file
+npx hyperframes render --variables-file ./vars.json --output out.mp4
+
+# Fail on undeclared or mistyped variables
+npx hyperframes render --variables '{"title":"Q4 Report"}' --strict-variables --output out.mp4
+```
+
+`--strict-variables` 将变量警告变成错误。 `--variables` 中未在 `data-composition-variables` 中声明的任何变量或其值与声明的类型不匹配，都会导致渲染以非零值退出。在 CI 管道中很有用，其中未声明的变量键可能表示拼写错误或架构不匹配。
+
+<Note>
+  CLI 覆盖仅适用于顶级组合。子组合变量由每个主机元素上的 `data-variable-values` 控制。
+</Note>
+
+## 分层和优先级
+
+变量值通过合并三个源来解析，优先级从最低到最高：
+
+| 来源 | 优先级 | 哪里宣布 |
+|--------|-----------|---------------|
+| 声明默认值 | 最低 | `<html>` 上的 `data-composition-variables` |
+| 每个实例主机覆盖 | 中间 | 子组件主机元素上的 `data-variable-values` |
+| CLI `--variables` 标志 | 最高 | `hyperframes render --variables '{...}'` |
+
+任何一层丢失的密钥都会进入下一个较低层。如果没有层提供值，则使用声明的 `default`。
+
+## 验证
+
+linter 静态检查变量声明：
+
+```bash Terminal
+npx hyperframes lint
+```
+
+它捕获格式错误的 JSON、缺少必填字段（`id`、`type`、`label`、`default`）以及 `type` 和 `default` 值之间的类型不匹配。在渲染之前修复 lint 错误 - 它们表明运行时将无法正确解析变量。
+
+在渲染时，CLI 根据架构验证 `--variables` 并将问题报告为警告（或 `--strict-variables` 的错误）：
+
+- **未声明** — `--variables` 中的密钥在 `data-composition-variables` 中没有匹配的 `id`
+- **类型不匹配** — 值的 JavaScript 类型与声明的 `type` 不匹配（例如，需要数字的字符串）
+- **枚举超出范围** — 枚举值不在声明的 `options` 列表中
+
+## 以编程方式检查变量
+
+如果您在 `@hyperframes/core` 之上构建工具，则变量声明无需渲染即可读取：
+
+```typescript
+import { extractCompositionMetadata } from "@hyperframes/core";
+import { readFileSync } from "node:fs";
+
+const html = readFileSync("compositions/card.html", "utf8");
+const { variables } = extractCompositionMetadata(html);
+// variables is CompositionVariable[]
+```
+
+这与 Studio 编辑 UI 用于为每个合成构建变量面板的 API 相同。
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="数据属性" icon="code" href="/concepts/data-attributes">
+    data-composition-variables 和 data-variable-values 属性的完整参考
+  </Card>
+  <Card title="作文" icon="layer-group" href="/concepts/compositions">
+    嵌套组合如何使用变量进行重用
+  </Card>
+  <Card title="渲染" icon="play" href="/guides/rendering">
+    用于在渲染时传递变量的 CLI 标志
+  </Card>
+  <Card title="CLI 参考" icon="terminal" href="/packages/cli">
+    所有 CLI 命令和标志
+  </Card>
+</CardGroup>

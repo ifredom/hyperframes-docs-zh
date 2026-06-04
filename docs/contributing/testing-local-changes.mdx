@@ -1,0 +1,132 @@
+---
+title: 测试本地 CLI 更改
+description: 如何使用本地构建测试 monorepo 之外未发布的 CLI 更改。
+---
+
+当您修改 CLI 或其捆绑的任何包（核心、引擎、制作人、工作室）时，您需要针对 monorepo_外部_的真实项目测试这些更改 - 就像最终用户运行 `hyperframes preview` 的方式一样。
+
+## 先决条件
+
+首先构建 monorepo。每次更改源文件时，请在测试之前重新构建。
+
+```bash
+# From the monorepo root
+bun run build
+```
+
+## 选项1：发髻链接（推荐）
+
+`bun link` 使 `$PATH` 中的 `hyperframes` 二进制文件指向本地构建。它可以跨终端会话生存，并自动拾取新版本而无需重新链接。
+
+```bash
+# If you previously installed hyperframes globally, remove it first —
+# a global install takes priority over bun link and shadows your local build.
+npm uninstall -g hyperframes 2>/dev/null
+
+# Link your local build
+cd packages/cli
+bun link
+
+# Verify — should print your local version AND point to the monorepo
+hyperframes --version
+which hyperframes
+```
+
+现在在任何目录中正常使用 `hyperframes` ：
+
+```bash
+cd ~/my-video-project
+hyperframes preview .
+```
+
+**在每个 `bun run build`** 之后，链接的二进制文件已经是最新的 - 无需重新链接。
+
+完成后要恢复已发布的版本：
+
+```bash
+bun unlink hyperframes
+npm install -g hyperframes@latest
+```
+
+## 选项 2：节点别名（不更改 PATH）
+
+如果您不想触及全局 `$PATH`，请添加 shell 别名或直接调用 `node`：
+
+```bash
+# Temporary alias for your current shell session
+alias hyperframes="node /path/to/hyperframes/packages/cli/dist/cli.js"
+
+# Or invoke directly
+node /path/to/hyperframes/packages/cli/dist/cli.js preview .
+```
+
+将 `/path/to/hyperframes` 替换为您的实际 monorepo 路径。
+
+## 选项 3：npm pack（测试确切发布的工件）
+
+当您想要验证版本中实际发布的内容（包括捆绑的工作室和示例）时，请使用此选项。
+
+```bash
+cd packages/cli
+npm pack
+# Creates: hyperframes-<version>.tgz
+
+# Test it in an isolated directory
+mkdir /tmp/pack-test && cd /tmp/pack-test
+npx /path/to/hyperframes/packages/cli/hyperframes-<version>.tgz init my-video
+cd my-video
+npx /path/to/hyperframes/packages/cli/hyperframes-<version>.tgz preview .
+```
+
+## 测试修复分支
+
+验证特定错误修复时，提取测试项目档案之一并运行场景：
+
+```bash
+# Example: testing audio-after-seek fix
+unzip golden-lyric-video.zip && cd golden-lyric-video
+hyperframes preview .
+# 1. Press Play — confirm audio plays
+# 2. Drag the timeline scrubber to a different position
+# 3. Press Play again — audio should resume from the seeked position
+```
+
+常见测试场景：
+
+| 漏洞 | 项目 | 步骤 |
+|---|---|---|
+| 搜索后音频无声 | `golden-lyric-video` | 播放→寻找→再次播放，验证音频 |
+| 渲染卡在 0% | 任何 | 渲染选项卡 → 导出 → 观看进度条 |
+| 重启后下载404 | 任何 | 完成渲染 → `Ctrl+C` → 重启 → 下载 |
+| 时间线提前停止 | `intro-vid` | 播放 → 应到达 `0:05`，而不是在 `0:03` 处停止 |
+| 洛蒂失踪 | `hyperframe-build-up-demo` | 播放 → 火箭在 0–2 秒内可见 |
+| 空白缩略图 | 任何 | 作品侧边栏应显示预览 |
+
+## 故障排除
+
+**在 `bun run build`** 之后未反映更改
+
+CLI 二进制文件是位于 `packages/cli/dist/cli.js` 的单个捆绑文件。如果您的更改位于 `@hyperframes/core` 或其他工作区包中，请确保 `bun run build` 重建 _all_ 包 — CLI 在构建时捆绑其依赖项。
+
+**`hyperframes` 仍然显示旧版本/旧 UI**
+
+全局安装的 `hyperframes` 包影子 `bun link`。检查哪个二进制文件处于活动状态：
+
+```bash
+which hyperframes
+```
+
+如果它指向全局商店而不是您的单一存储库，请删除全局安装并重新链接：
+
+```bash
+npm uninstall -g hyperframes
+cd packages/cli && bun link
+```
+
+**端口已在使用**
+
+`hyperframes preview` 默认为端口 3002，并在被占用时自动递增。传递 `--port` 以使用特定端口：
+
+```bash
+hyperframes preview . --port 4000
+```

@@ -1,0 +1,487 @@
+---
+title: "纹理蒙版文本"
+---
+
+`text` `texture` `mask` `effect`
+
+<div className="hf-texture-preview-panel">
+  <div className="hf-texture-preview-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/brick.png')" }}>
+    <div className="hf-texture-preview-label">砖</div>
+    <div className="hf-texture-preview-shadow"><div className="hf-texture-preview-word">砖</div></div>
+  </div>
+  <div className="hf-texture-preview-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/rock.png')" }}>
+    <div className="hf-texture-preview-label">岩石</div>
+    <div className="hf-texture-preview-shadow"><div className="hf-texture-preview-word">岩石</div></div>
+  </div>
+  <div className="hf-texture-preview-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/ground-103.png')" }}>
+    <div className="hf-texture-preview-label">地面103</div>
+    <div className="hf-texture-preview-shadow"><div className="hf-texture-preview-word">地面</div></div>
+  </div>
+  <div className="hf-texture-preview-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/wood.png')" }}>
+    <div className="hf-texture-preview-label">木头</div>
+    <div className="hf-texture-preview-shadow"><div className="hf-texture-preview-word">木头</div></div>
+  </div>
+  <div className="hf-texture-preview-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/metal.png')" }}>
+    <div className="hf-texture-preview-label">金属</div>
+    <div className="hf-texture-preview-shadow"><div className="hf-texture-preview-word">金属</div></div>
+  </div>
+  <div className="hf-texture-preview-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/lava.png')" }}>
+    <div className="hf-texture-preview-label">岩浆</div>
+    <div className="hf-texture-preview-shadow"><div className="hf-texture-preview-word">岩浆</div></div>
+  </div>
+</div>
+
+## 安装
+
+<CodeGroup>
+
+```bash Terminal
+npx hyperframes add texture-mask-text
+```
+
+</CodeGroup>
+
+## 细节
+
+| 财产 | 价值 |
+| --- | --- |
+| 类型 | 成分 |
+
+## 代理使用
+
+当要求代理应用纹理时，请使用以下措辞：
+
+```text
+Use the Texture Mask Text catalog component.
+
+1. From the project root, run:
+   npx hyperframes add texture-mask-text
+2. That command creates this installed snippet:
+   compositions/components/texture-mask-text/texture-mask-text.html
+3. Open that file and paste the real <style> block
+   near the bottom into the composition once. That CSS defines
+   hf-texture-text and every hf-texture-* class.
+4. Apply this class to the target text:
+   class="hf-texture-text hf-texture-brick"
+5. For another material, copy one hf-texture-* class
+   from the Texture Examples cards.
+6. This is the proper way to apply drop shadow
+   to textured text: wrap the text and put
+   filter on the wrapper, not on the text.
+   Use this markup:
+   <div style="filter: drop-shadow(1px 2px 1px rgba(0,0,0,0.48))">
+     <div class="hf-texture-text hf-texture-brick">TEXT</div>
+   </div>
+```
+
+安装后，该代码段位于您运行 `npx hyperframes add texture-mask-text` 的项目内的 `compositions/components/texture-mask-text/texture-mask-text.html` 处。要粘贴的部分是该文件底部附近的真实 `<style>` 元素；纹理 PNG 安装到 `assets/texture-mask-text/masks/` 并由该 CSS 中的项目根 URL 引用。
+
+将 `hf-texture-brick` 替换为下面任何纹理卡上显示的类。基类 `hf-texture-text` 始终是必需的。
+
+## 动画纹理
+
+通过移动文本元素上的蒙版位置来对纹理进行动画处理。将阴影保留在包装纸上，以便阴影跟随纹理轮廓。
+
+<div className="hf-texture-animate-demo" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/lava.png')" }}>
+  <div className="hf-texture-animate-meta">
+    <div className="hf-texture-animate-label">动画蒙版位置</div>
+    <code className="hf-texture-animate-class">hf-纹理-文本 hf-纹理-熔岩</code>
+  </div>
+  <div className="hf-texture-animate-shadow">
+    <div className="hf-texture-animate-word">运动</div>
+  </div>
+</div>
+
+```html
+<div class="texture-shadow">
+  <div class="hf-texture-text hf-texture-lava animated-texture">MOTION</div>
+</div>
+```
+
+```css
+.animated-texture {
+  --mask-size: 180% 180%;
+  --mask-position: 0% 50%;
+}
+```
+
+```js
+const tl = gsap.timeline({ paused: true });
+tl.to(".animated-texture", {
+  "--mask-position": "100% 50%",
+  duration: 1.2,
+  ease: "sine.inOut",
+  yoyo: true,
+  repeat: 1,
+}, 0);
+window.__timelines["my-composition"] = tl;
+```
+
+## 纹理示例
+
+<div className="hf-texture-example-groups">
+  <div>
+    <h3 className="hf-texture-example-title">石工</h3>
+    <div className="hf-texture-example-grid">
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/brick.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">砖</div><code className="hf-texture-example-class">高频纹理砖</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">砖</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf 纹理文本 hf 纹理砖</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/bricks-104.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">砖块104</div><code className="hf-texture-example-class">高频纹理砖-104</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">砖</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-砖-104</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/bricks-102.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">砖块102</div><code className="hf-texture-example-class">高频纹理砖-102</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">砖</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-砖-102</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/bricks-101.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">积木101</div><code className="hf-texture-example-class">高频纹理砖-101</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">砖</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-texture-text hf-texture-bricks-101</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/bricks-075-a.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">砖块 075 A</div><code className="hf-texture-example-class">高频纹理砖-075-a</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">砖</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-砖-075-a</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/concrete.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">具体的</div><code className="hf-texture-example-class">高频纹理混凝土</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">具体的</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-混凝土</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/concrete-034.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">混凝土034</div><code className="hf-texture-example-class">HF-纹理-混凝土-034</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">具体的</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-混凝土-034</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/concrete-047-a.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">混凝土 047 A</div><code className="hf-texture-example-class">高频纹理混凝土-047-a</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">具体的</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-混凝土-047-a</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/concrete-046.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">混凝土046</div><code className="hf-texture-example-class">HF-纹理-混凝土-046</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">具体的</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-混凝土-046</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/concrete-042-a.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">混凝土042A</div><code className="hf-texture-example-class">hf-纹理-混凝土-042-a</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">具体的</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-混凝土-042-a</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/plaster-001.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">石膏001</div><code className="hf-texture-example-class">高频纹理石膏-001</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">石膏</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-石膏-001</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/painted-plaster-017.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">彩绘石膏017</div><code className="hf-texture-example-class">HF-纹理-绘制-石膏-017</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">石膏</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-绘制-石膏-017</code></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <h3 className="hf-texture-example-title">石头</h3>
+    <div className="hf-texture-example-grid">
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/rock.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">岩石</div><code className="hf-texture-example-class">高频纹理岩石</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">岩石</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-岩石</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/rock-063.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">摇滚063</div><code className="hf-texture-example-class">高频纹理岩石-063</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">岩石</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-岩石-063</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/rock-058.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">摇滚058</div><code className="hf-texture-example-class">高频纹理岩石-058</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">岩石</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-岩石-058</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/onyx.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">玛瑙</div><code className="hf-texture-example-class">高频纹理缟玛瑙</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">奥尼克斯</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf 纹理文本 hf 纹理缟玛瑙</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/marble-012.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">大理石012</div><code className="hf-texture-example-class">HF-纹理-大理石-012</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">大理石</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-大理石-012</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/marble-016.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">大理石016</div><code className="hf-texture-example-class">HF-纹理-大理石-016</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">大理石</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-大理石-016</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/travertine-009.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">洞石009</div><code className="hf-texture-example-class">高频纹理石灰华-009</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">石头</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-石灰华-009</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/paving-stones-150.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">铺路石 150</div><code className="hf-texture-example-class">高频纹理铺路石-150</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">石头</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-铺路石-150</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/paving-stones-138.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">铺路石 138</div><code className="hf-texture-example-class">高频纹理铺路石 138</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">石头</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-铺路石-138</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/tiles-138.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">瓷砖 138</div><code className="hf-texture-example-class">hf-纹理-瓷砖-138</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">瓦</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-瓷砖-138</code></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <h3 className="hf-texture-example-title">地面/道路</h3>
+    <div className="hf-texture-example-grid">
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/ground-103.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">地面103</div><code className="hf-texture-example-class">高频纹理地面-103</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">地面</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-地面-103</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/ground-037.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">地面037</div><code className="hf-texture-example-class">高频纹理地面-037</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">地面</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-地面-037</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/ground-054.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">地面054</div><code className="hf-texture-example-class">高频纹理地面-054</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">地面</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-地面-054</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/ground-104.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">地面104</div><code className="hf-texture-example-class">高频纹理地面-104</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">地面</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-地面-104</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/ground-068.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">地面068</div><code className="hf-texture-example-class">高频纹理地面-068</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">地面</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-地面-068</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/ground-080.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">地面080</div><code className="hf-texture-example-class">高频纹理地面-080</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">地面</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-地面-080</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/road-012-a.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">012A路</div><code className="hf-texture-example-class">高频纹理路-012-a</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">路</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-路-012-a</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/road-008-a.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">008A路</div><code className="hf-texture-example-class">高频纹理路-008-a</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">路</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-路-008-a</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/road-007.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">007号公路</div><code className="hf-texture-example-class">高频纹理路-007</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">路</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-路-007</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/road-013-a.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">013A路</div><code className="hf-texture-example-class">高频纹理路-013-a</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">路</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-路-013-a</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/road-012-b.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">012B路</div><code className="hf-texture-example-class">高频纹理路-012-b</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">路</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-路-012-b</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/road-009-c.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">009C路</div><code className="hf-texture-example-class">高频纹理路-009-c</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">路</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-路-009-c</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/asphalt-031.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">沥青031</div><code className="hf-texture-example-class">HF-纹理-沥青-031</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">沥青</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-沥青-031</code></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <h3 className="hf-texture-example-title">木头</h3>
+    <div className="hf-texture-example-grid">
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/wood.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">木头</div><code className="hf-texture-example-class">高频纹理木材</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">木头</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf 纹理文本 hf 纹理木材</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/wood-094.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">木094</div><code className="hf-texture-example-class">高频纹理木材-094</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">木头</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-木材-094</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/wood-092.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">木材092</div><code className="hf-texture-example-class">高频纹理木材-092</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">木头</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-木材-092</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/wood-051.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">木头051</div><code className="hf-texture-example-class">高频纹理木材-051</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">木头</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-木材-051</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/wood-066.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">木头066</div><code className="hf-texture-example-class">高频纹理木材-066</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">木头</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-木材-066</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/wood-049.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">木049</div><code className="hf-texture-example-class">高频纹理木材-049</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">木头</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-木材-049</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/wood-058.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">木058</div><code className="hf-texture-example-class">高频纹理木材-058</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">木头</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-木材-058</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/wood-floor-051.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">木地板051</div><code className="hf-texture-example-class">高频纹理木地板-051</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">地面</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-木地板-051</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/wood-floor-064.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">木地板064</div><code className="hf-texture-example-class">高频纹理木地板-064</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">地面</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-木地板-064</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/wood-floor-070.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">木地板070</div><code className="hf-texture-example-class">高频纹理木地板-070</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">地面</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-木地板-070</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/bark-014.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">树皮014</div><code className="hf-texture-example-class">高频纹理树皮-014</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">吠</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-树皮-014</code></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <h3 className="hf-texture-example-title">金属</h3>
+    <div className="hf-texture-example-grid">
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/metal.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">金属</div><code className="hf-texture-example-class">高频纹理金属</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">金属</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-金属</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/metal-049-a.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">金属049A</div><code className="hf-texture-example-class">高频纹理金属-049-a</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">金属</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-金属-049-a</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/metal-055-a.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">金属055A</div><code className="hf-texture-example-class">高频纹理金属-055-a</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">金属</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-金属-055-a</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/metal-046-b.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">金属046B</div><code className="hf-texture-example-class">高频纹理金属-046-b</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">金属</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-金属-046-b</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/metal-061-b.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">金属061B</div><code className="hf-texture-example-class">高频纹理金属-061-b</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">金属</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-金属-061-b</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/metal-048-a.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">金属048A</div><code className="hf-texture-example-class">高频纹理金属-048-a</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">金属</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-金属-048-a</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/metal-032.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">金属032</div><code className="hf-texture-example-class">高频纹理金属-032</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">金属</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-金属-032</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/metal-041-a.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">金属041A</div><code className="hf-texture-example-class">高频纹理金属-041-a</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">金属</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-金属-041-a</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/metal-038.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">金属038</div><code className="hf-texture-example-class">高频纹理金属-038</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">金属</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-金属-038</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/diamond-plate-009.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">钻石板009</div><code className="hf-texture-example-class">高频纹理金刚石板-009</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">盘子</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-钻石-板-009</code></div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <h3 className="hf-texture-example-title">有机/软</h3>
+    <div className="hf-texture-example-grid">
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/lava.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">岩浆</div><code className="hf-texture-example-class">高频纹理熔岩</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">岩浆</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-熔岩</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/grass-005.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">草005</div><code className="hf-texture-example-class">HF-纹理-草-005</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">草</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-草-005</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/grass-001.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">草001</div><code className="hf-texture-example-class">hf-纹理-草-001</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">草</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-草-001</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/grass-004.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">草004</div><code className="hf-texture-example-class">HF-纹理-草-004</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">草</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-草-004</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/carpet.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">地毯</div><code className="hf-texture-example-class">高频纹理地毯</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">编织</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-地毯</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/fabric-083.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">面料083</div><code className="hf-texture-example-class">HF-纹理-织物-083</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">织物</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-织物-083</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/snow.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">雪</div><code className="hf-texture-example-class">高频纹理雪</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">雪</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-雪</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/snow-015.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">雪015</div><code className="hf-texture-example-class">HF-纹理-雪-015</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">雪</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-雪-015</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/leather-037.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">皮革037</div><code className="hf-texture-example-class">HF-纹理-皮革-037</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">皮革</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-皮革-037</code></div>
+      </div>
+      <div className="hf-texture-example-card" style={{ "--mask-url": "url('https://static.heygen.ai/hyperframes-oss/docs/images/catalog/components/texture-mask-text/masks/fabric-080.png')" }}>
+        <div className="hf-texture-example-meta"><div className="hf-texture-example-label">面料080</div><code className="hf-texture-example-class">HF-纹理织物-080</code></div>
+        <div className="hf-texture-example-shadow"><div className="hf-texture-example-word">织物</div></div>
+        <div className="hf-texture-example-usage">使用 <code>hf-纹理-文本 hf-纹理-织物-080</code></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+## 用法
+
+在 `npx hyperframes add texture-mask-text` 之后，安装的代码片段位于当前 HyperFrames 项目内的 `compositions/components/texture-mask-text/texture-mask-text.html` 处。打开该文件并将底部附近的真实 `<style>` 元素粘贴到您的合成中一次；它定义了 `hf-texture-text` 和上面示例使用的每个 `hf-texture-*` 类。将安装的纹理 PNG 保存在 `assets/texture-mask-text/masks/` 中； CSS 使用项目根 URL 引用它们。

@@ -1,0 +1,220 @@
+---
+title: 管道
+description: "用于制作任何HyperFrames视频的 7 步流程：捕捉、设计、脚本、故事板、配音、构建、验证。"
+---
+
+每个结构良好的 Hyperframes 视频都经过相同的 7 个步骤，无论它是从网站、PDF、CSV 还是空白页面开始。每个步骤都会生成下一步所依赖的命名工件，因此您的 AI 代理（和您）始终知道已完成的操作、下一步的操作以及创意决策在磁盘上的位置。
+
+该管道是[网站到视频工作流程](/guides/website-to-video) 的支柱，但当您从头开始编写品牌卷轴脚本、将研究笔记转变为发布预告片或首次学习HyperFrames时，它同样有用。大多数生产级[发布视频](/launch-videos) HeyGen 飞船都是这样组织的。
+
+## 七个步骤
+
+每个步骤都会产生一个工件，为下一步提供支持：
+
+| # | 步          | 输出                                  | 会发生什么                                                            |
+|---|---------------|-----------------------------------------|-------------------------------------------------------------------------|
+| 1 | **捕获**   | `capture/`                              | 从源中提取屏幕截图、设计令牌、字体、资产、动画 |
+| 2 | **设计**    | `DESIGN.md`                             | 品牌参考：颜色、版式、组件、注意事项        |
+| 3 | **脚本**    | `SCRIPT.md`                             | 带有引子、故事、证明和号召性用语的旁白文本                         |
+| 4 | **故事板**| `STORYBOARD.md`                         | 每节拍的创意方向：情绪、资产、动画、过渡      |
+| 5 | **画外音 + 计时**| `narration.wav` + `transcript.json`    | 带有字级时间戳的 TTS 音频                                    |
+| 6 | **建造**     | `compositions/*.html`                   | 动画 HTML 作品，每节拍一个                                |
+| 7 | **证实**  | 快照 PNG + `lint`/`validate` pass  | 交付前的目视验证和运行时检查                  |
+
+<Tip>
+  并非每个项目都使用每个步骤。无旁白的品牌卷轴会跳过第 5 步；手工创作的作品会跳过步骤 1-2。但顺序很重要：场景持续时间来自旁白，动画选择来自故事板，而故事板取决于设计参考。仅当您不需要下游的工件时才跳过该步骤。
+</Tip>
+
+## 项目布局
+
+管道运行后的典型项目目录：
+
+```
+my-video/
+├── capture/                    # Step 1, only present when capturing a source
+│   ├── screenshots/            # scroll-000.png, scroll-001.png, …
+│   ├── assets/                 # downloaded images, SVGs, fonts
+│   ├── extracted/              # tokens.json, visible-text.txt, asset-descriptions.md
+│   ├── AGENTS.md               # capture summary for AI agents
+│   └── CLAUDE.md
+├── DESIGN.md                   # Step 2, brand cheat sheet
+├── SCRIPT.md                   # Step 3, narration backbone
+├── STORYBOARD.md               # Step 4, beat-by-beat creative plan
+├── narration.wav               # Step 5, TTS audio
+├── narration.txt               # Step 5, exact spoken text (with pronunciation subs)
+├── transcript.json             # Step 5, word-level timestamps
+├── compositions/               # Step 6, one HTML file per beat
+│   ├── beat-1-hook.html
+│   ├── beat-2-story.html
+│   └── …
+├── snapshots/                  # Step 7, visual verification PNGs
+├── renders/                    # optional final MP4 outputs
+└── index.html                  # root project file wiring compositions into a timeline
+```
+
+捕获工件保留在 `capture/` 中，因此它们与构建输出完全分离。下游的所有内容都位于项目根目录中。
+
+## 第 1 步：捕获
+
+**输出：** `capture/`
+
+当视频基于现有来源（网站、品牌网站、竞争对手参考）时，请从捕获开始。 Hyperframes 为网站提供了内置捕获命令：
+
+```bash
+npx hyperframes capture https://example.com -o my-video/capture
+```
+
+这会提取每个滚动深度的屏幕截图、像素采样的调色板、CSS 字体堆栈（和下载的 woff2 文件）、具有语义名称的图像和 SVG、Lottie 动画以及页面上检测到的动画。可选的 [Gemini 视觉丰富](/guides/website-to-video#enriching-captures-with-gemini-vision) 为每个捕获的资产添加人工智能驱动的描述。
+
+对于非网站的来源（PDF、幻灯片、CSV、注释），捕获不是字面命令。这是将资产收集到 `capture/` 的步骤，因此后续步骤可以引用路径而不是内联内容。
+
+**门：** 您可以用一两句话描述源的视觉标识，并命名其顶级颜色、字体和突出资产。
+
+## 第二步：设计
+
+**输出：** 项目根目录中的 `DESIGN.md`
+
+`DESIGN.md` 是品牌备忘单。它对视觉标识进行实际编码，因此每个下游决策都可以引用确切的颜色、字体和组件，而不是发明它们。这是一份参考文件，而不是创意计划。创造性的工作发生在故事板中。
+
+典型的 `DESIGN.md` 有六个部分：
+
+| 部分 | 它捕获了什么 |
+|---------|------------------|
+| **概述** | 3-4 句话描述布局模式、色彩策略、版式色调 |
+| **颜色** | 具有语义角色的 5-10 个十六进制值（主要表面、温暖重音等） |
+| **版式** | 具有粗细、角色和独特用法的字体系列 |
+| **成分** | 品牌使用的图案：便当网格、标志墙、渐变网格 |
+| **图像** | Error 500 (Server Error)!!1500.That’s an error.There was an error. Please try again later.That’s all we know. |
+| **注意事项** | 硬性规则：“白色背景，永不黑暗”，“无阴影” |
+
+`DESIGN.md`也是[开放设计](/guides/open-design)和[克劳德设计](/guides/claude-design)的输入格式；两者都会生成一个 `DESIGN.md` ，您可以将其放入 Hyperframes 项目中。
+
+**门：** `DESIGN.md` 存在，所有六个部分均由实际捕获的数据填充（或为新建项目故意选择）。
+
+## 第 3 步：脚本
+
+**输出：** 项目根目录中的 `SCRIPT.md`
+
+`SCRIPT.md` 是叙述的主干。场景持续时间来自旁白，而不是猜测，因此在故事板和时间节拍之前写好剧本。
+
+典型的结构：**挂钩**（引起注意的一句话），**故事**（产品或主题是什么），**证据**（数字、组件、客户），**CTA**（一项明确的行动）。参考 `capture/extracted/visible-text.txt` 中的真实功能、真实统计数据和真实组件。不要发明来源不支持的主张。
+
+对于没有旁白的视频（品牌卷轴、音乐驱动的预告片），`SCRIPT.md` 变成了按节拍的复制计划：屏幕上的文本和标题，以及时间说明。
+
+**Gate:** `SCRIPT.md` 存在于项目根目录中。
+
+## 第四步：故事板
+
+**输出：** 项目根目录中的 `STORYBOARD.md`
+
+`STORYBOARD.md` 告诉工程师（人类或代理）具体要为每个节拍构建什么：情绪、相机、动画、过渡、资产、深度层、音效。这是确定创意选择的地方。
+
+`STORYBOARD.md` 中的每个节拍通常涵盖：
+
+| 场地            | 它指定了什么 |
+|------------------|-------------------|
+| 定时           | `0.0s - 5.8s`，在第 5 步运行后从 `transcript.json` 获取 |
+| 旁白线   | 在这一节拍中说出的确切话语 |
+| 心情和相机    | 一句话描述感觉和击球 |
+| 资产           | 此节拍中包含哪些捕获的图像、图标和字体，由路径引用 |
+| 技巧       | [技术库](https://github.com/heygen-com/hyperframes/blob/main/skills/hyperframes/references/techniques.md) 中的 2-3 个选择：SVG 路径绘制、Canvas 2D、CSS 3D、逐字排版、Lottie、视频合成、打字效果、可变字体、MotionPath、速度过渡、音频反应 |
+| 过渡      | 该节拍如何从上一个节拍进入并退出到下一个节拍 |
+| 特效              | 简短、特定的声音效果（例如_“徽标输入时发出嗖嗖的声音，计数器上发出轻柔的滴答声”_） |
+
+故事板通常以全局方向块开始：格式、画外音方向、风格基础以及适用于每个节拍的护栏。
+
+**Gate：** `STORYBOARD.md` 存在，具有逐节拍方向和命名每个使用的文件的资产审核。
+
+## 第 5 步：VO 和计时
+
+**输出：** `narration.wav`（或 `.mp3`）、`narration.txt`、`transcript.json`
+
+生成 TTS 旁白，然后将其转录为单词级时间戳。这些时间戳是下游每个节拍持续时间的真相来源。
+
+```bash
+npx hyperframes tts SCRIPT.md --voice af_nova --output narration.wav
+npx hyperframes transcribe narration.wav
+```
+
+| 文件             | 它包含什么 |
+|------------------|------------------|
+| `narration.wav`  | 最终渲染附带的 TTS 音频 |
+| `narration.txt`  | 应用发音替换的确切口语文本（`API` → `A P I`、`$2T` → `two trillion`）。与 `SCRIPT.md` 不同，因此您可以稍后使用不同的声音重新生成音频，而无需重新进行替换。 |
+| `transcript.json`| 每个单词都有 `[{ text, start, end }]`。后面的每个步骤都会读取此内容以进行计时。 |
+
+Hyperframes 附带多个 TTS 适配器（Kokoro、ElevenLabs、HeyGen）；请参阅 [`/hyperframes-media`](/guides/prompting) 了解选择一项的技能。生成音频后，使用 `transcript.json` 中的真实节拍边界更新 `STORYBOARD.md`。
+
+**门：** `narration.wav`、`narration.txt` 和 `transcript.json` 存在。 `STORYBOARD.md` 节拍计时参考真实时间戳，而不是估计值。
+
+## 第 6 步：构建
+
+**输出：** `compositions/<beat-name>.html`，每个节拍一个 HTML 文件
+
+这是故事板变成可运行 HTML 的地方。每个合成都是一个独立的文件，通过路径导入捕获的资源，使用 `DESIGN.md` 中的确切颜色和字体，并使用故事板选择的技术制作动画。
+
+对于多节拍视频，每个节拍生成一个聚焦的子代理。每一个都有新鲜的背景、其节拍的故事板部分、其所需的资产路径以及相关的技术参考。与在一个长期运行的上下文中构建每个节拍相比，这会产生明显更好的输出。
+
+每个作品构建完成后，对布局、资源放置和动画质量进行自我审查。 [`/hyperframes`](/guides/prompting) 技能对组合规则进行编码：所需的 `class="clip"` 属性、GSAP 时间线注册、`data-*` 属性语义和适配器注册表。
+
+**门：** 每篇作文都是自我审查的。没有重叠的元素，没有错位的资源，没有没有动画的静态图像。
+
+## 第 7 步：验证
+
+**输出：** `snapshots/frame-*.png`，lint 并验证零错误通过
+
+发货前三检查：
+
+```bash
+npx hyperframes lint                              # static HTML structure checks
+npx hyperframes validate                          # loads in headless Chrome, catches runtime errors
+npx hyperframes snapshot my-video --at 2.9,10.4   # PNGs at beat midpoints
+```
+
+`lint` 捕获丢失的属性、时间线注册问题、补间冲突以及 CSS 转换与 GSAP 冲突。 `validate` 在无头 Chrome 中加载每个组合并显示运行时 JS 错误、缺少资源和失败的网络请求。 `snapshot` 在特定时间戳捕获帧，以便您无需完整渲染即可“查看”输出。
+
+管道提供 localhost Studio URL 作为切换。您的 AI 代理运行 `npx hyperframes preview` 并共享项目 URL。按需渲染为 MP4：
+
+```bash
+npx hyperframes render --output my-video.mp4
+```
+
+**门：** `lint` 和 `validate` 通过零错误。快照帧看起来不错。 Studio 预览 URL 已准备好共享。
+
+## 迭代
+
+该管道是围绕磁盘上的命名工件构建的，因此您可以重新进入任何地方，而无需重新运行所有内容：
+
+- 要重新制定创意计划，请编辑 `STORYBOARD.md`：更改节拍的情绪、交换资产、重新安排入口时间，然后要求代理重建该节拍。
+- 对于外科手术调整，直接打开合成文件（例如 `compositions/beat-3-proof.html`）并调整动画、颜色或布局。 `npx hyperframes preview` 实时显示更改。
+- 要从头开始重建一个节拍，请提示代理：_“用更多能量重建节拍 2。使用产品屏幕截图作为全屏背景。”_ 它读取 `STORYBOARD.md`、`DESIGN.md` 和转录本，然后仅重新生成该文件。
+- 要交换语音而不重做步骤 3，请针对 `narration.txt` 重新运行 TTS，其中已包含发音替换。
+
+每个工件都是一个检查点，因此您可以停下来，将其交给人工审核员，或者明天再回来，而代理仍然拥有继续运行所需的一切。
+
+## 何时使用管道
+
+管道是推荐的结构：
+
+- 使用 [/website-to-hyperframes](/guides/prompting) 技能捕获网站，该技能端到端跟踪该网站。
+- 发布产品发布会。大多数 [HeyGen 发布视频](/launch-videos) 都使用此工件布局。
+- 任何具有三个或更多节拍的叙事视频，其中故事板本身就可以收回成本。
+- 学习HyperFrames，因为这些工件可以在磁盘上检查每个创意决策。
+
+对于5秒的单镜头动画来说，单一的手绘构图就可以了；管道是您不需要的开销。粗略的截止：如果非作者需要理解_为什么_节拍看起来是这样的，请将其写在 `STORYBOARD.md` 中。
+
+## 后续步骤
+
+<CardGroup cols={2}>
+  <Card title="网站到视频" icon="globe" href="/guides/website-to-video">
+    在此管道上构建的完整网站到视频工作流程。
+  </Card>
+  <Card title="提示" icon="comment" href="/guides/prompting">
+    如何通过 AI 代理调用管道。
+  </Card>
+  <Card title="发布视频" icon="rocket" href="/launch-videos">
+    围绕该管道组织的实际生产项目。
+  </Card>
+  <Card title="CLI 参考" icon="terminal" href="/packages/cli">
+    管道调用的每个命令。
+  </Card>
+</CardGroup>

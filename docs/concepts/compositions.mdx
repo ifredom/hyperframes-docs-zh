@@ -1,0 +1,212 @@
+---
+title: 作文
+description: "HyperFrames视频的基本构建块。"
+---
+
+合成是定义视频时间线的 HTML 文档。每个剪辑——视频、图像、音频——都存在于一个作品中。
+
+## 结构
+
+每个组合都需要一个带有 `data-composition-id` 的根元素：
+
+```html index.html
+<div id="root" data-composition-id="root"
+     data-start="0" data-width="1920" data-height="1080">
+  <!-- Elements go here -->
+</div>
+```
+
+`index.html` 文件是顶层组合。它可以包含嵌套的组合。任何作品都可以导入到另一个作品中——没有特殊的“根”类型。
+
+## 剪辑类型
+
+剪辑是时间线上的任何离散块，表示为具有[数据属性](/concepts/data-attributes) 的 HTML 元素：
+
+- `<video>` -- 视频剪辑、B 卷、A 卷
+- `<img>` -- 静态图像、叠加层
+- `<audio>` -- 音乐、音效
+- `<div data-composition-id="...">` -- 嵌套组合（动画、分组序列）
+
+有关每种剪辑类型的属性的完整列表，请参阅 [HTML 架构参考](/reference/html-schema)。
+
+## 嵌套组合
+
+您可以通过两种方式将一个组合嵌入到另一个组合中：从外部文件加载或内联定义它。外部文件是可重用组合的推荐方法。
+
+<Tabs>
+  <Tab title="外部文件">
+    使用 `data-composition-src` 引用另一个 HTML 文件。框架自动获取文件，提取 `<template>` 内容，安装它，执行脚本并注册时间线。
+
+    ```html index.html
+    <div
+      id="el-5"
+      data-composition-id="intro-anim"
+      data-composition-src="compositions/intro-anim.html"
+      data-start="0"
+      data-track-index="3"
+    ></div>
+    ```
+
+    每个外部组合文件将其内容包装在 `<template>` 标记中：
+
+    ```html compositions/intro-anim.html
+    <template id="intro-anim-template">
+      <div data-composition-id="intro-anim" data-width="1920" data-height="1080">
+        <div class="title">Welcome!</div>
+
+        <style>
+          [data-composition-id="intro-anim"] .title {
+            font-size: 72px; color: white; text-align: center;
+          }
+        </style>
+
+        <script>
+          const tl = gsap.timeline({ paused: true });
+          tl.from(".title", { opacity: 0, y: -50, duration: 1 });
+          window.__timelines["intro-anim"] = tl;
+        </script>
+      </div>
+    </template>
+    ```
+  </Tab>
+  <Tab title="排队">
+    直接在父级内部定义嵌套组合。对于不需要重复使用的一次性组合物来说，这更简单。
+
+    ```html index.html
+    <div id="root" data-composition-id="root"
+         data-start="0" data-width="1920" data-height="1080">
+
+      <!-- Inline nested composition -->
+      <div id="el-5" data-composition-id="intro-anim"
+           data-start="0" data-track-index="3"
+           data-width="1920" data-height="1080">
+        <div class="title">Welcome!</div>
+      </div>
+
+      <script>
+        // Timeline for the inline composition
+        const introTl = gsap.timeline({ paused: true });
+        introTl.from(".title", { opacity: 0, y: -50, duration: 1 });
+        window.__timelines["intro-anim"] = introTl;
+      </script>
+    </div>
+    ```
+
+    内联组合不使用 `<template>` 标签或 `data-composition-src`。
+  </Tab>
+</Tabs>
+
+### 项目结构
+
+<Tree>
+  <Tree.Folder name="project" defaultOpen>
+    <Tree.File name="index.html" />
+    <Tree.Folder name="compositions" defaultOpen>
+      <Tree.File name="intro-anim.html" />
+      <Tree.File name="caption-overlay.html" />
+      <Tree.File name="outro-title.html" />
+    </Tree.Folder>
+    <Tree.Folder name="assets">
+      <Tree.File name="video.mp4" />
+      <Tree.File name="music.mp3" />
+      <Tree.File name="logo.png" />
+    </Tree.Folder>
+  </Tree.Folder>
+</Tree>
+
+## 两层：基元和脚本
+
+每个作品都有两层：
+
+- **HTML** -- 原始剪辑（`video`、`img`、`audio`、嵌套组合）。声明性结构：播放什么内容、何时播放以及在哪首曲目上播放。由[数据属性](/concepts/data-attributes)控制。
+- **脚本** -- 效果、过渡、动态 DOM、画布、SVG -- 通过 [GSAP](/guides/gsap-animation) 进行创意动画。脚本**不**控制媒体播放或剪辑可见性。
+
+<Warning>
+  切勿使用脚本来播放/暂停/搜索媒体元素或根据时间显示/隐藏剪辑。框架根据数据属性自动处理此问题。重复此行为的脚本将与框架冲突。有关示例，请参阅[常见错误](/guides/common-mistakes)。
+</Warning>
+
+## 变量
+
+HyperFrames 不会自动将 `data-var-*` 属性绑定到您的组合 DOM 或 CSS 中。
+
+支持的模式是：
+
+1. 使用 `data-composition-variables` （id + 类型 + 默认值）在子组件的 `<html>` 根上声明一次变量。
+2. 使用 `data-variable-values` 在每个组合主机上传递每个实例的值。
+3. 使用 `window.__hyperframes.getVariables()` 读取组合内的解析值。运行时将主机的 `data-variable-values` 分层到每个实例声明的默认值之上，因此可以使用不同的值多次嵌入相同的源。
+
+```html index.html
+<div
+  data-composition-id="card-pro"
+  data-composition-src="compositions/card.html"
+  data-start="0"
+  data-track-index="1"
+  data-variable-values='{"title":"Pro","color":"#ff4d4f"}'
+></div>
+<div
+  data-composition-id="card-enterprise"
+  data-composition-src="compositions/card.html"
+  data-start="card-pro"
+  data-track-index="1"
+  data-variable-values='{"title":"Enterprise","color":"#22c55e"}'
+></div>
+```
+
+```html compositions/card.html
+<html data-composition-variables='[
+  {"id":"title","type":"string","label":"Title","default":"Fallback"},
+  {"id":"color","type":"color","label":"Color","default":"#111827"}
+]'>
+  <body>
+    <div data-composition-id="card" data-width="1920" data-height="1080">
+      <h1 class="title"></h1>
+
+      <style>
+        [data-composition-id="card"] {
+          --card-color: #111827;
+        }
+
+        [data-composition-id="card"] .title {
+          color: var(--card-color);
+        }
+      </style>
+
+      <script>
+        // Inside a sub-comp script, getVariables() returns the per-instance
+        // values: declared defaults < host data-variable-values overrides.
+        const { title, color } = __hyperframes.getVariables();
+        const root = document.querySelector('[data-composition-id="card"]');
+        root.querySelector(".title").textContent = title;
+        root.style.setProperty("--card-color", color);
+      </script>
+    </div>
+  </body>
+</html>
+```
+
+如果您在 `@hyperframes/core` 之上构建工具，则可以通过 `extractCompositionMetadata()` 读取相同的 `data-composition-variables` 数组，以用于 Studio 编辑 UI 和分析管道。
+
+## 列表组合
+
+使用 [CLI](/packages/cli) 查看项目中的所有合成：
+
+```bash
+npx hyperframes compositions
+```
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="数据属性" icon="code" href="/concepts/data-attributes">
+    有关时序、媒体和合成属性的完整参考
+  </Card>
+  <Card title="GSAP动画" icon="wand-magic-sparkles" href="/guides/gsap-animation">
+    使用 GSAP 时间线将动画添加到您的作品中
+  </Card>
+  <Card title="示例" icon="grid-2" href="/examples">
+    从常见视频模式​​的内置示例开始
+  </Card>
+  <Card title="HTML 架构参考" icon="book" href="/reference/html-schema">
+    创作作品的完整架构
+  </Card>
+</CardGroup>

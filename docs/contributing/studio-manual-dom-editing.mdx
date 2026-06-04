@@ -1,0 +1,315 @@
+---
+title: Studio 手动 DOM 编辑
+description: Studio 手动 DOM 编辑检查器今天提供的内容，包括功能、UX 和约束。
+---
+
+本页记录了 HyperFrames Studio 中当前手动 DOM 编辑界面。 It reflects the implementation that ships in the Studio inspector today, not the earlier design draft that explored third-party transform engines.
+
+## 运送了什么
+
+Studio 现在支持预览中的直接 DOM 编辑工作流程：
+
+- 直接在预览中选择支持的元素
+- 查看当前选择周围编辑器拥有的覆盖层
+- 当几何体安全时，在画布上移动受支持的元素并调整其大小
+- 使用显式 `Make movable` 操作分离符合条件的布局控制层
+- 从右侧 `Design` 检查器编辑样式属性
+- 编辑文本图层以实现安全的文本承载选择，包括空文本值
+- 添加和删​​除多文本选择的子文本图层
+- 编辑实体填充、渐变、项目资产图像填充、外部图像填充、不透明度、半径、弹性元数据、版式和混合模式
+- 从主视图钻取嵌套组合，而不是假装每个内部节点都可以就地编辑
+- 从右侧检查器生成元素范围的 `Ask agent` 提示包
+
+重要的规则是保守的：Studio 仅公开交互，它可以往返返回到具有确定性行为的创作 HTML。
+
+## 当前的用户体验
+
+### 预览选择
+
+- 单击即可在预览中选择可修补元素。
+- 选择叠加层在 Studio chrome 中呈现，而不是注入到创作的内容中。
+- 在以下情况下，覆盖层将被清除：
+  - `Inspector` 面板已关闭
+  - 用户单击预览中的空白区域
+  - 源刷新后底层元素消失
+
+### 叠加行为
+
+覆盖层提供：
+
+- 选择界限
+- 支持的元素的拖动行为
+- 当宽度和高度可安全修补时的调整大小手柄
+- 无支撑运动的阻塞拖动反馈
+
+覆盖层故意不包含浮动操作工具栏。 `Ask agent` 位于右侧检查器标题中，样式控件位于 `Design` 面板中。
+
+当前的实现在 `DomEditOverlay.tsx` 中使用 Studio 拥有的指针处理。它**不**使用 `Moveable`。
+
+### 检查员行为
+
+`Design` 面板当前包括：
+
+- `Layout`
+  - X / Y / W / H 字段
+  - 滚轮和箭头键数字擦除
+  - `Make movable` 用于可以安全分离的块状布局控制层
+- `Flex`
+  - 方向、对齐、对齐、间隙、剪辑内容
+- `Radius`
+  - 滑块 + 实时读数
+- `Blending`
+  - 不透明度滑块 + 实时读数
+  - 混合模式
+- `Fill`
+  - 纯色
+  - 多站渐变编辑
+  - 项目资产图像填充
+  - 内联图像上传到项目资产列表中
+  - 外部图片URL填写
+  - 文字颜色
+- `Color picker`
+  - 视口固定的浮动选择器
+  - 饱和度/亮度十字线
+  - 色调和 Alpha 滑块
+  - 十六进制输入
+- `Text`
+  - 当选择可以安全修补时直接文本图层编辑
+  - 添加/删除子文本选择的文本图层
+  - 字体大小、粗细和系列控件
+- `Selection colors`
+  - 当前选择的检测到的颜色的摘要
+
+检查器有意从 `Renders` 中分离出来，并在右侧面板中添加了 `Design / Renders` 选项卡控件。切换到 `Renders` 并不意味着标题级 `Inspector` 面板关闭。
+
+## 什么才算可编辑
+
+Studio 为每个选择构建 `DomEditSelection` 和 `DomEditCapabilities` 对象。
+
+### 选型要求
+
+仅当节点可以通过稳定的补丁目标进行识别时，该节点才对 Studio 有用，例如：
+
+- `id`
+- 稳定的选择器
+- 选择器索引范围为正确的源文件
+- 涉及主视图时的组合主机映射
+
+### 移动支撑
+
+仅当所选元素满足以下条件时才允许移动：
+
+- 有稳定的补丁目标
+- 是 `absolute` 或 `fixed`
+- 具有解析为像素值的 `left` 和 `top` 值
+- 不是变换驱动的 (`transform: none`)
+
+### 调整支持大小
+
+仅当已允许移动并且 Studio 还可以安全地修补像素 `width` 和/或 `height` 时才允许调整大小。
+
+### 脱离布局支持
+
+一些块状图层是可选择的且样式可编辑的，但无法直接移动，因为 Flex、网格或普通文档流拥有其位置。
+
+对于这些图层，Studio 可以公开 `Make movable`，而不是在拖动时静默转换。该操作测量相对于合成根的当前视觉矩形并写入保守的内联几何图形：
+
+- `position: absolute`
+- `left`、`top`、`width` 和 `height`（以像素为单位）
+- `margin: 0`
+
+UI 解释说，这会将图层与 Flex/Grid 流分离并保留当前的视觉位置。内联文本节点不会直接分离。
+
+### 文本编辑支持
+
+仅允许对包含安全文本的选择进行文本编辑：
+
+- 支持的带有文本的标签，例如 `div`、`span`、`p`、`strong` 和标题
+- 自文本选择或叶子文本图层
+- 用户清除内容后为空文本值
+- 不是合成主机
+
+对于多文本选择，Studio 会显示文本图层列表。用户可以选择特定的文本图层，实时编辑内容，更改大小、粗细和字体系列，添加同级文本图层或删除活动图层。
+
+### 不支持的示例
+
+Error 500 (Server Error)!!1500.That’s an error.There was an error. Please try again later.That’s all we know.
+
+- flex/grid 子元素的位置是从布局中出现的，除非用户选择 `Make movable`
+- 变换驱动的几何
+- 当用户仍处于主视图中时嵌套组合内部结构
+- 没有稳定补丁目标的节点
+- 内联文本跨度作为几何目标
+
+当几何体被阻止但样式编辑仍然安全时，检查器会显示选择以及直接几何体编辑不可用的原因。
+
+如果用户尝试拖动被阻止的图层，Studio 会显示一条消息。布局拥有的层将用户指向 `Make movable`；变换驱动或不安全的目标解释了直接移动/调整大小仅限于绝对或固定像素几何形状，没有变换驱动的布局。
+
+## 嵌套组合规则
+
+嵌套组合被显式处理。
+
+### 在主视图中
+
+- 单击嵌套合成内的内容会映射回合成主机
+- 当主机几何形状安全时，受支持的组合主机可以作为一个整体移动
+- Studio 不会从主预览中公开直接的内部节点几何编辑
+- 双击钻取子组合
+
+### 深入分析后
+
+- Studio 通常会解析该合成中的选择
+- 如果所选内部节点满足功能规则，则直接移动/调整大小将再次可用
+- 文本、填充、渐变、图像、半径、不透明度和版式编辑适用于选定的内部节点
+
+这使得 Studio 能够诚实地了解它可以从当前编辑上下文中安全地修补哪些内容。
+
+## 源修补模型
+
+Studio 仍然使用编写的 HTML 作为事实来源。
+
+手动 DOM 编辑流程通过 `packages/studio/src/utils/sourcePatcher.ts` 中的现有补丁管道进行补丁源。
+
+检查员当前使用的补丁类型包括：
+
+- 内联样式补丁
+- 时间线链接编辑路径的属性补丁
+- 文本内容补丁
+- 与布局分离的样式补丁
+
+流程是：
+
+1. 用户在预览中选择或操作元素
+2. Studio确定了一个稳定的目标
+3. 预览乐观更新交互反馈
+4. 补丁被写回源
+5. 预览刷新并重新附加选择
+
+## 渐变编辑
+
+当前的渐变编辑器是结构化的 Studio 控件，而不是原始 CSS 文本字段。
+
+它支持：
+
+- `linear`、`radial` 和 `conic` 梯度
+- 重复变体
+- 多次停靠
+- 单击预览条停止插入
+- 停止移除
+- 角度控制
+- 径向形状和尺寸控制
+- 径向/圆锥中心控制
+
+编辑器仍然序列化回 CSS `background-image`，但检查器使用解析的渐变模型，而不是强制用户输入原始渐变语法。
+
+## 图像填充编辑
+
+图像填充编辑器不再只是原始的 `background-image` 输入。
+
+它支持：
+
+- 选择现有项目图像资源
+- 从填充面板上传图像，这也会将其添加到“资源”选项卡中
+- 在面板中预览选定的项目资源
+- 当图像不是项目资产时输入外部 URL
+
+Studio 将项目资源选择序列化回 `background-image: url(...)`，并重写资源 URL，以便嵌套子组合预览仍能正确解析图像。
+
+## 颜色编辑
+
+颜色编辑器是一个自定义的 Studio 弹出窗口，而不是本机浏览器颜色对话框。
+
+它支持：
+
+- 从整个颜色行开始
+- 停留在视口内靠近单击颜色的位置
+- 使用可见的十字线指南进行饱和度/亮度拾取
+- 带有可见手柄的色调和 Alpha 控件
+- 当前颜色样本、读数和十六进制输入
+
+选择器写入 CSS `rgb(...)` 或 `rgba(...)` 值并通过编辑保留 alpha。
+
+## 数字清理
+
+数字布局/细节输入支持轻量级设计工具风格的微移：
+
+- 将鼠标滚轮置于聚焦字段上
+- `ArrowUp` / `ArrowDown`
+- `Shift` 用于较大的步骤
+- `Alt` 用于更精细的步骤
+
+目前，它在检查器中的数字提交字段中使用，包括布局指标和其他数字文本输入，这些输入可以干净地解析为值加单位。
+
+## 拥有该功能的文件
+
+主要实现位于：
+
+- `packages/studio/src/App.tsx`
+  - 整体巡检接线
+  - 选择生命周期
+  - 预览命中测试
+  - 持久性挂钩
+  - 与布局分离提交流程
+- `packages/studio/src/components/editor/DomEditOverlay.tsx`
+  - 覆盖框、拖动、调整大小、阻止拖动反馈
+- `packages/studio/src/components/editor/PropertyPanel.tsx`
+  - 右侧检查器 UI
+- `packages/studio/src/components/editor/domEditing.ts`
+  - 选择分辨率
+  - 能力门控
+  - 文本字段建模
+  - 提示生成
+- `packages/studio/src/components/editor/colorValue.ts`
+  - 颜色解析、HSV 转换和 CSS 颜色序列化
+- `packages/studio/src/components/editor/floatingPanel.ts`
+  - 用于颜色选择的视口安全浮动面板放置
+- `packages/studio/src/components/editor/fontAssets.ts`
+  - 导入字体资源助手
+- `packages/studio/src/components/editor/fontCatalog.ts`
+  - Google 字体目录元数据和样式表 URL
+- `packages/studio/src/components/editor/gradientValue.ts`
+  - 梯度解析、序列化和停止编辑助手
+- `packages/studio/src/utils/sourcePatcher.ts`
+  - 源补丁持久化
+
+支持 Studio shell 的更改还包括：
+
+- `packages/studio/src/components/nle/NLELayout.tsx`
+- `packages/studio/src/components/nle/NLEPreview.tsx`
+- `packages/studio/src/components/sidebar/CompositionsTab.tsx`
+- `packages/studio/src/components/sidebar/LeftSidebar.tsx`
+- `packages/studio/src/player/components/Player.tsx`
+- `packages/studio/src/player/components/Timeline.tsx`
+- `packages/studio/src/player/components/TimelineClip.tsx`
+- `packages/studio/src/player/hooks/useTimelinePlayer.ts`
+- `packages/studio/src/utils/mediaTypes.ts`
+
+## 目前的限制
+
+此功能有意**不是**完整的通用视觉生成器。
+
+今天仍然超出范围：
+
+- 旋转
+- 任意变换
+- 捕捉和对齐指南
+- 多选
+- 选框选择
+- 无论布局模型如何，均可自由编辑每个 DOM 节点
+- 直接从主预览编辑嵌套子组合内部结构，无需向下钻取
+- 拖动时自动转换为绝对定位，无需用户确认
+- 内嵌文本跨度的直接几何编辑
+
+## 底线
+
+Studio 手动 DOM 编辑现在是创作 HTML 上的一个狭窄的、确定性的可视化编辑层。
+
+它**不**尝试使整个 DOM 自由编辑。相反，它：
+
+- 将 HTML 源代码作为事实来源
+- 仅公开可修补的交互
+- 使用 Studio 拥有的覆盖层进行直接操作
+- 为用户提供真正的安全样式和文本编辑检查器
+- 将嵌套合成视为向下钻取边界，而不是将它们展平到不安全的编辑表面
+
+这种权衡是当前功能让人感觉可靠而不是欺骗的原因。

@@ -1,0 +1,379 @@
+---
+title: 渲染
+description: "在本地或在 Docker 中将合成渲染为 MP4、MOV 或 WebM。"
+---
+
+使用 [CLI](/packages/cli) 将HyperFrames [合成](/concepts/compositions) 渲染为 MP4、MOV 或 WebM。渲染管道是逐帧且由搜索驱动的 — 请参阅[确定性渲染](/concepts/determinism) 了解其幕后工作原理。
+
+## 入门
+
+<Steps>
+  <Step title="验证您的环境">
+    运行诊断命令来检查所需的依赖项：
+
+    ```bash Terminal
+    npx hyperframes doctor
+    ```
+
+    预期输出：
+
+    ```
+    ✓ Node.js    v22.x
+    ✓ FFmpeg      7.x
+    ✓ FFprobe     7.x
+    ✓ Chrome      (bundled)
+    ✓ Docker      available
+    ```
+  </Step>
+  <Step title="预览你的作文">
+    渲染之前，在浏览器中预览您的合成以验证其看起来是否正确：
+
+    ```bash Terminal
+    npx hyperframes preview
+    ```
+  </Step>
+  <Step title="渲染为 MP4">
+    从项目目录运行渲染命令：
+
+    ```bash Terminal
+    npx hyperframes render --output output.mp4
+    ```
+
+    预期输出：
+
+    ```
+    ⠋ Rendering composition "root" (30fps, standard quality)
+    ✓ Captured 240 frames in 8.2s
+    ✓ Encoded to output.mp4 (8.0s, 1920x1080, 4.2MB)
+    ```
+  </Step>
+</Steps>
+
+## 渲染模式
+
+<Tabs>
+  <Tab title="本地模式">
+    ### 本地模式（默认）
+
+    使用 Puppeteer（捆绑 Chromium）和系统的 FFmpeg。开发过程中迭代速度快。
+
+    **需要：** 您的系统上安装了 FFmpeg。如果未找到 FFmpeg，请参阅[故障排除](/guides/troubleshooting)。
+
+    ```bash Terminal
+    npx hyperframes render --output output.mp4
+    ```
+
+    **优点：**
+    - 快速启动，无容器开销
+    - 默认情况下可以使用系统 GPU 进行 Chrome/WebGL 捕获
+    - 可以使用您的系统 GPU 进行硬件加速编码（使用 `--gpu`）
+    - 最适合迭代开发
+
+    **缺点：**
+    - 由于字体和 Chrome 版本差异，输出可能会因平台而异
+    - 不适合需要重现性的 CI/CD 管道
+  </Tab>
+  <Tab title="码头模式">
+    ### 码头模式
+
+    [确定性](/concepts/determinism) 输出具有精确的 Chrome 版本和字体集。将其用于生产渲染和 CI 管道。
+
+    **需要：** Docker 安装并运行。
+
+    ```bash Terminal
+    npx hyperframes render --docker --output output.mp4
+    ```
+
+    **优点：**
+    - 每个平台上的输出相同 - 相同的 Chrome、相同的字体、相同的 FFmpeg
+    - 生产中使用相同的管道
+    - CI/CD 和自动化工作流程的理想选择
+
+    **缺点：**
+    - 由于容器初始化导致启动速度较慢
+    - 浏览器捕获保持在确定性软件-GL 路径上
+    - GPU 编码需要 Docker 主机 GPU 直通，并且在 Docker Desktop 上不跨平台
+
+    <Note>
+      Docker 模式使用 `chrome-headless-shell` 和 [BeginFrame](/concepts/determinism#how-it-works) 控制来实现帧完美、确定性捕获。
+    </Note>
+  </Tab>
+</Tabs>
+
+## 何时使用每种模式
+
+| 设想 | 推荐模式 |
+|----------|-----------------|
+| 本地开发迭代 | 当地的 |
+| CI/CD 管道 | 码头工人 |
+| 与团队共享渲染 | 码头工人 |
+| 快速预览导出 | 当地的 |
+| AI代理驱动的渲染 | 码头工人 |
+| 基准性能 | 当地的 |
+
+## 选项
+
+| 旗帜 | 价值观 | 默认 | 描述 |
+|------|--------|---------|-------------|
+| `--output` | 小路 | `renders/<name>.mp4` | 输出文件路径 |
+| `--format` | mp4、mov、webm、png 序列 | mp4 | 输出格式（参见下面的[透明视频](#transparent-video)） |
+| `--fps` | 24, 30, 60 | 30 | 每秒帧数 |
+| `--quality` | 草稿、标准、高 | 标准 | 编码质量预设 |
+| `--crf` | 0–51 | — | 覆盖 CRF（较低 = 较高质量）。无法与 `--video-bitrate` 结合 |
+| `--video-bitrate` | 例如`10M`、`5000k` | — | 目标比特率编码。无法与 `--crf` 结合 |
+| `--workers` | 1-8 或 `auto` | 汽车 | 并行渲染工作人员（请参阅下面的 [Workers](#workers)） |
+| `--max-concurrent-renders` | 1-10 | 2 | 通过生产者服务器的最大同时渲染数（请参阅下面的[并发渲染](#concurrent-renders)） |
+| `--gpu` | — | 离开 | GPU 编码（NVENC、VideoToolbox、AMF、VAAPI、QSV） |
+| `--browser-gpu` / `--no-browser-gpu` | — | 在本地打开，在 Docker 中关闭 | 使用或选择不使用主机 GPU 加速进行本地 Chrome/WebGL 捕获 |
+| `--hdr` | — | 离开 | 即使未检测到 HDR 源，也强制输出 HDR（仅限 MP4）。请参阅[HDR 渲染](/guides/hdr) |
+| `--sdr` | — | 离开 | 即使检测到 HDR 源，也强制输出 SDR |
+| `--docker` | — | 离开 | 使用 Docker 进行[确定性渲染](/concepts/determinism) |
+| `--quiet` | — | 离开 | 抑制详细输出 |
+
+## 质量和编码
+
+`--quality` 标志选择控制 H.264 CRF（恒定速率因子）和编码器速度的预设：
+
+| 预设 | 病例报告表 | x264 预设 | 最适合 |
+|--------|-----|-------------|----------|
+| `draft` | 28 | 超快 | 快速预览、迭代 |
+| `standard` | 18 | 中等的 | 一般用途 — 1080p 时视觉无损 |
+| `high` | 15 | 慢的 | 最终交付，近乎无损的品质 |
+
+为了更好地控制，请使用 `--crf` 或 `--video-bitrate` 覆盖预设：
+
+```bash
+# Near-lossless quality (CRF 15 = very high quality, large file)
+npx hyperframes render --crf 15 --output pristine.mp4
+
+# Target a specific bitrate (useful for size-constrained delivery)
+npx hyperframes render --video-bitrate 10M --output controlled.mp4
+```
+
+**提示**：默认的 `standard` 预设 (CRF 18) 在 1080p 下在视觉上是无损的 - 大多数人无法将其与源区分开。使用 `--quality draft` 可以加快迭代速度，或者在不考虑文件大小时使用 `--quality high` / `--crf 10` 。
+
+## GPU加速
+
+Hyperframes 有两个独立的 GPU 加速表面：
+
+- `--gpu` 在 FFmpeg 中使用硬件视频编码器（如果可用）。支持的后端包括 macOS 上的 VideoToolbox、NVIDIA 系统上的 NVENC、Windows 上的 AMD AMF、Linux 上的 VAAPI 以及受支持的 Windows/Linux 主机上的 Intel QSV。
+- 浏览器 GPU 使用主机 GPU 进行本地 Chrome/WebGL 捕获。它会自动启用本地渲染并在 Docker 中禁用。使用 `--no-browser-gpu` 选择退出。
+
+```bash Terminal
+# Add hardware FFmpeg encoding to the default local browser-GPU render
+npx hyperframes render --gpu --output encoded-fast.mp4
+
+# Opt out of hardware Chrome/WebGL capture
+npx hyperframes render --no-browser-gpu --output software-browser.mp4
+
+# Use browser GPU plus hardware FFmpeg encoding
+npx hyperframes render --gpu --output gpu.mp4
+```
+
+浏览器 GPU 捕获仅适用于本地模式。它映射到平台本机 Chrome GPU 后端：macOS 上的 Metal、Windows 上的 D3D11 和 Linux 上的 EGL。当精确的跨机器再现性比本地渲染速度更重要时，请使用 `--no-browser-gpu` 或 Docker 模式。
+
+## 工人
+
+每个渲染工作线程都会启动一个**单独的 Chrome 浏览器进程**来并行捕获帧。更多的工作人员可以加快渲染速度，但每个工作人员都会消耗约 256 MB 的 RAM 和大量的 CPU。
+
+### 默认行为
+
+默认情况下，Hyperframes 使用 **一半的 CPU 核心，上限为 4**：
+
+| 机器 | CPU核心数 | 默认工人 |
+|---------|-----------|----------------|
+| MacBook Air (M1) | 8 | 4 |
+| MacBook Pro (M3) | 12 | 4（上限） |
+| 4核笔记本电脑 | 4 | 2 |
+| 2核虚拟机 | 2 | 1 |
+
+这是故意保守的。每个工作进程都会生成自己的 Chrome 进程，因此每个工作进程的开销非常大。更少的工作人员可以避免 FFmpeg 编码和其他应用程序的资源争用。
+
+### 选择工人数量
+
+```bash Terminal
+# Explicit worker count
+npx hyperframes render --workers 1 --output output.mp4
+
+# Let Hyperframes pick based on your CPU
+npx hyperframes render --workers auto --output output.mp4
+
+# Maximum parallelism (use with caution on laptops)
+npx hyperframes render --workers 8 --output output.mp4
+```
+
+<Tip>
+  从默认开始。如果渲染感觉很慢并且您的系统有余量（检查活动监视器/`htop`），请尝试增加`--workers`。如果您发现内存压力较高或风扇噪音较大，请降低它。
+</Tip>
+
+### 何时使用 1 名工人
+
+- 短合成（2 秒/60 帧以下）——并行性开销超过了好处
+- 低内存机器（4 GB 或更少）
+- 与其他繁重进程一起运行渲染（视频编辑、大型构建）
+
+### 何时增加工人
+
+- 在具有 8 个以上内核和 16 个以上 GB RAM 的计算机上进行长合成（30 秒以上）
+- 专用渲染机或 CI 运行器
+- 配置良好的主机上的 Docker 模式
+
+## 并发渲染
+
+当多个渲染请求同时到达生产者服务器时（常见于 AI 代理），每个渲染都会生成自己的一组 Chrome 工作进程。过多的并发渲染可能会耗尽 CPU 并导致失败。
+
+生产者服务器使用**请求级信号量**来对渲染进行排队。一次只有 `maxConcurrentRenders` 渲染执行 - 其他请求在 FIFO 队列中等待，直到插槽打开。
+
+### 配置
+
+```bash Terminal
+# CLI flag
+npx hyperframes render --max-concurrent-renders 2 --output output.mp4
+
+# Environment variable (for the producer server)
+PRODUCER_MAX_CONCURRENT_RENDERS=2
+```
+
+默认为 **2** 并发渲染，这在每个渲染使用 2-3 个工作线程的 8 核机器上运行良好。
+
+### 队列状态
+
+生产者服务器公开一个返回当前状态的 `GET /render/queue` 端点：
+
+```json
+{
+  "maxConcurrentRenders": 2,
+  "activeRenders": 1,
+  "queuedRenders": 3
+}
+```
+
+AI代理可以轮询该端点来决定是提交渲染还是等待。
+
+### SSE 队列事件
+
+使用流端点 (`POST /render/stream`) 时，排队的请求在渲染开始之前接收 `queued` 事件：
+
+```json
+{"type": "queued", "requestId": "...", "position": 2}
+```
+
+这使得客服人员可以向用户报告“正在队列中等待”，而不是显得卡住了。
+
+### 选择并发限制
+
+| 机器 | CPU核心数 | 推荐限值 |
+|---------|-----------|------------------|
+| 4核虚拟机 | 4 | 1 |
+| 8核工作站 | 8 | 2 |
+| 16核服务器 | 16 | 3-4 |
+| 32核渲染盒 | 32 | 5-6 |
+
+<Tip>
+  如有疑问，请使用 1。渲染将排队并按顺序执行，但每个渲染都会占用完整的 CPU 并尽快完成。这比 3 个渲染争夺 CPU 并且全部完成缓慢或失败要好。
+</Tip>
+
+## 透明视频
+
+HyperFrames支持使用透明背景进行渲染 - 对于叠加、下三分之一、订阅卡以及您想要在视频编辑器中与其他素材合成的任何元素非常有用。
+
+### 推荐格式：MOV (ProRes 4444)
+
+```bash Terminal
+npx hyperframes render --format mov --output overlay.mov
+```
+
+**采用 ProRes 4444 的 MOV** 是透明视频的行业标准。它适用于所有主要视频编辑器：
+
+- 封盖切割
+- 最终剪辑专业版
+- Adobe Premiere Pro
+- 达芬奇决心
+- 后期效果
+
+<Warning>
+  ProRes MOV 文件很大（短剪辑通常为 5-40 MB），因为 ProRes 是针对编辑而不是交付进行优化的高质量中间编解码器。这是预料之中的——与远程和专业管道所做的权衡相同。
+</Warning>
+
+### 格式比较
+
+| 格式 | 编解码器 | 透明度 | 视频编辑器 | 浏览器 | 文件大小 |
+|--------|-------|-------------|---------------|----------|-----------|
+| **MOV** | ProRes 4444 | 是的 | CapCut、Final Cut、Premiere、达芬奇、After Effects | 不 | 大的 |
+| **网络M** | VP9 | 是的 | 无（显示黑色背景） | 铬、火狐 | 小的 |
+| **PNG 序列** | RGBA PNG（无编码） | 是（无损） | After Effects、Nuke、Fusion（图像序列导入） | 不 | 最大 |
+| **MP4** | H.264 | 不 | 全部 | 全部 | 小的 |
+
+<Note>
+  **WebM VP9 alpha** 在技术上受支持，但所有主要视频编辑器都会忽略 Alpha 通道并将透明区域渲染为黑色。只有基于 Chromium 的浏览器（Chrome、Arc、Brave、Edge）才能正确解码 VP9 alpha。 Safari 不支持。将 MOV 用于编辑器工作流程，将 WebM 仅用于基于浏览器的播放。
+</Note>
+
+### PNG序列（无编码）
+
+```bash Terminal
+npx hyperframes render --format png-sequence --output frames/
+```
+
+`--format png-sequence` 完全跳过编码器。捕获的 RGBA 帧将复制到 `<output>/frame_NNNNNN.png` （零填充），如果合成有音频，则会在旁边写入 `audio.aac` sidecar。当您需要无损帧时使用此选项 - 用于在 After Effects / Nuke / Fusion 中合成，或作为自定义编码管道的输入。 `--output` 被视为目录，如果不存在则创建该目录。
+
+### 它是如何运作的
+
+当您使用 `--format mov`、`--format webm` 或 `--format png-sequence` 渲染时，HyperFrames：
+
+1. 将每个帧捕获为 **带 alpha 通道的 PNG **（而不是 MP4 的 JPEG）
+2. 通过 `Emulation.setDefaultBackgroundColorOverride` 将 Chrome 的页面背景设置为透明
+3. 使用支持 alpha 的编解码器进行编码（MOV 为 ProRes 4444，WebM 为 VP9）； `png-sequence` 跳过编码，直接写入捕获的帧
+
+您的合成的 HTML 不应**在 `html` 或 `body` 上设置 `background` — 保持未设置状态，以便透明背景通过。
+
+### 创作透明的作品
+
+```html
+<style>
+  /* Do NOT set background on html/body — leave them transparent */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  [data-composition-id="my-overlay"] {
+    position: relative;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    /* No background here either */
+  }
+</style>
+```
+
+只有可见元素（卡片、文本、图像）才会出现在最终视频中。其他一切都将是透明的。
+
+### 验证透明度
+
+- **在浏览器中：** 打开 MOV 文件 - 它不会播放（ProRes 不是浏览器编解码器）。相反，渲染 WebM 副本并在 Chrome 中的棋盘背景页面上打开它。
+- **在视频编辑器中：** 导入 MOV 文件并将其放置在其他素材上方的轨道上。透明区域应显示下面的镜头。
+- **在线工具：** 使用 [rotato.app/tools/transparent-video](https://rotato.app/tools/transparent-video) 验证您的 MOV 或 WebM 是否具有工作透明度。
+
+## 尖端
+
+<Tip>
+  在开发过程中使用 `draft` 质量进行快速预览。切换到 `standard` 或 `high` 以获取最终输出。
+</Tip>
+
+- 使用 `npx hyperframes benchmark` 找到适合您系统的最佳设置
+- Docker 模式速度较慢，但​​保证跨平台[相同的输出](/concepts/determinism)
+- 对于具有许多帧的合成，`--gpu` 可以显着加快本地编码速度
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="确定性渲染" icon="lock" href="/concepts/determinism">
+    了解决定论保证
+  </Card>
+  <Card title="高动态范围渲染" icon="sun" href="/guides/hdr">
+    从 HDR 视频和图像源渲染 HDR10 MP4
+  </Card>
+  <Card title="CLI 参考" icon="terminal" href="/packages/cli">
+    CLI 命令和标志的完整列表
+  </Card>
+  <Card title="故障排除" icon="wrench" href="/guides/troubleshooting">
+    修复常见的渲染问题
+  </Card>
+</CardGroup>

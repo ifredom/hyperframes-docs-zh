@@ -1,0 +1,165 @@
+---
+title: 4K渲染
+description: "将任何合成渲染为 4K (3840×2160)，无需重写 — CLI 通过 Chrome 的设备比例因子对 1080p 合成进行超级采样。"
+---
+
+HyperFrames以两种方式渲染为 4K (3840×2160)。两者都可以生产真正的 4K MP4；选择与您的项目相匹配的一个。
+
+<CardGroup cols={2}>
+  <Card title="4K 作者" icon="ruler">
+    以 4K 搭建项目，以便合成以 4K 原生布局。当您需要清晰的 4K 原生排版和资源时，这是最佳选择。
+    ```bash
+    npx hyperframes init my-video --resolution 4k
+    ```
+  </Card>
+  <Card title="渲染时的超级采样" icon="up-right-and-down-left-from-center">
+    保留现有的 1080p 作品。在渲染时传递 `--resolution 4k` ，Chrome 以 2× DPR 渲染，因此屏幕截图以 4K 分辨率呈现。
+    ```bash
+    npx hyperframes render --resolution 4k --output 4k.mp4
+    ```
+  </Card>
+</CardGroup>
+
+## 快速入门
+
+<Steps>
+  <Step title="以 4K 渲染现有项目">
+    ```bash Terminal
+    npx hyperframes render --resolution 4k --output my-video-4k.mp4
+    ```
+
+    组合的 `data-width` / `data-height` 保持不变。 Chrome的`deviceScaleFactor`设置为`2`，因此每帧捕获的屏幕截图为3840×2160。 ffmpeg 自动检测屏幕截图流的尺寸并以 4K 进行编码。
+  </Step>
+  <Step title="或者以 4K 搭建新项目">
+    ```bash Terminal
+    npx hyperframes init my-video --resolution 4k
+    ```
+
+    每个脚手架 HTML 文件都已就位修补：`data-width="3840"`、`data-height="2160"`、`data-resolution="landscape-4k"`、`#stage` CSS 尺寸和 `<meta viewport>` 标记。
+  </Step>
+  <Step title="验证输出是否为 4K">
+    ```bash Terminal
+    ffprobe -v error -select_streams v:0 -show_entries stream=width,height my-video-4k.mp4
+    ```
+
+    预期的：
+    ```
+    width=3840
+    height=2160
+    ```
+  </Step>
+</Steps>
+
+## 分辨率预设
+
+`--resolution` 在 `init` 和 `render` 上接受这些值：
+
+| 预设 | 方面 | 别名 |
+|--------|-----------|---------|
+| `landscape` | 1920×1080 | `1080p`、`hd` |
+| `portrait` | 1080×1920 | `1080p-portrait` |
+| `landscape-4k` | 3840×2160 | `4k`、`uhd` |
+| `portrait-4k` | 2160×3840 | `4k-portrait` |
+
+示例：
+
+```bash Terminal
+npx hyperframes render --resolution 4k         # landscape 4K
+npx hyperframes render --resolution portrait-4k # vertical 4K (TikTok / Reels at max quality)
+npx hyperframes render --resolution 1080p       # explicit 1080p (no-op on 1080p compositions)
+```
+
+## `--resolution` 的工作原理（超级采样）
+
+该构图保持其创作的尺寸。 Hyperframes 根据输出与合成维度的比率计算 `deviceScaleFactor` 并将其传递给 Chrome：
+
+| 作品 | `--resolution` | `deviceScaleFactor` | 输出 |
+|-------------|---------------|--------------------|--------|
+| 1920×1080 | `4k` | 2 | 3840×2160 |
+| 1080×1920 | `portrait-4k` | 2 | 2160×3840 |
+| 3840×2160 | `4k` | 1（无操作） | 3840×2160 |
+
+然后，Chrome 以较高的 DPR 渲染页面——有效地将每个 CSS 像素渲染为 2×2 设备像素——因此捕获的屏幕截图符合请求的分辨率。
+
+<Tip>
+  这种方法故意很简单——无需合成编辑，无需第二次创作。权衡：4K 渲染每帧大约需要 4 倍的时间，因为需要捕获和编码 4 倍的像素。
+</Tip>
+
+## 什么是可扩展的，什么是不可扩展的
+
+超级采样以更高的 DPR 重新渲染页面。这确实有助于浏览器从矢量或高分辨率源光栅化的任何内容，并且对于已经锁定到固定像素网格的内容没有任何作用。在 4K 渲染之前了解哪个是哪个会设定正确的期望：
+
+| 资产类型 | `--resolution 4k` 处的行为 |
+|------------|------------------------------|
+| 文本（HTML、SVG `<text>`、网络字体） | ✅ **以 4K 重新光栅化。** 字形是矢量，浏览器以新的 DPR 对其进行形状/光栅化。任何规模都清脆。 |
+| SVG/矢量图形 | ✅ **以 4K 重新光栅化。** 与文本相同的故事 — 路径是矢量。 |
+| CSS 形状、渐变、边框、阴影 | ✅ **以 4K 重新栅格化。** 浏览器生成的栅格。 |
+| 固有尺寸 ≥ 4K 的图像 | ✅ **完全受益。** 3840×2160 源提供所有细节。 |
+| 小于 4K 的图像（例如 1920×1080 PNG） | ⚠️ **没有新细节。** 浏览器放大源位图；输出并不比 1080p 渲染和外部升级更清晰，但也不会更差。 |
+| `<video>` 元素 | ❌ **锁定源分辨率。** 1080p MP4 保持 1080p；超级样本仅对周围的 DOM 有帮助。如果您需要 4K 全程，请以目标分辨率对源视频进行编码。 |
+| `<canvas>`（2D 和 WebGL） | ❌ **锁定画布的固有尺寸。** `<canvas width="1920" height="1080">` 是 1080p 位图，与 DPR 无关。要以 4K 渲染画布内容，请将 `canvas.width` / `canvas.height` 乘以目标 DPR 并缩放绘图上下文（`ctx.scale(2, 2)` 对于具有相同逻辑布局的 2× 画布）。 |
+| 由引擎注入的预渲染视频帧 | ❌ **锁定提取分辨率。** 当制作者通过 ffmpeg 预提取 `<video>` 帧时，它们会按源视频的尺寸进行解码。 |
+
+**经验法则**：如果资产是*矢量或由浏览器生成*，超级采样会有所帮助。如果它是*具有固定像素尺寸的位图*（视频、画布、低分辨率 PNG），则它不会 - 而是以目标分辨率进行创作。
+
+## 约束条件
+
+`--resolution` 在捕获任何帧之前强制执行三个防护。如果失败，渲染将在工作之前退出。
+
+### 宽高比必须匹配
+
+```bash
+# OK — both landscape
+hyperframes render --resolution 4k         # composition is 1920×1080
+
+# Error — composition is landscape, target is portrait
+hyperframes render --resolution portrait-4k  # composition is 1920×1080
+# → outputResolution portrait-4k (2160×3840) does not match the aspect ratio
+#   of the composition (1920×1080). Pick a preset whose orientation matches.
+```
+
+### 小数位必须是整数
+
+宽度比（输出÷成分）必须是正整数。 1080p → 4K 正是 `2×`。 720p → 4K 将是 `3×` 并且有效。像 900p → 4K (`2.4×`) 这样的非整数比例会在子像素位置的文本上引入锯齿 - HyperFrames会拒绝而不是产生模糊的渲染。
+
+### 不支持下采样
+
+`--resolution` 仅超级样本。使用此标志无法将 4K 合成缩减采样到 1080p — 以合成的原始分辨率渲染，并在需要时使用 ffmpeg 单独缩减。
+
+### `--hdr` 尚不支持
+
+HDR分层合成器在合成维度上处理像素缓冲区； supersample + HDR 需要对这些缓冲区进行并行缩放。该组合被拒绝并带有明确的错误消息。如果您需要同时渲染，请分两次渲染：以合成分辨率进行 HDR，然后分别进行升级。
+
+## 表现
+
+1080p → 4K 超级采样大约需要多 4 倍的像素来捕获、编码和写入。预计：
+
+- **每帧捕获**：慢 3-4 倍（Chrome 绘制 4 倍像素，屏幕截图传输放大 4 倍）
+- **编码**：慢 2–3 倍（取决于编解码器；H.264 随分辨率呈次线性缩放）
+- **内存**：有界 — 引擎的帧数据 URI 缓存按字节预算（每个工作线程默认 1500 MB，可通过 `PRODUCER_FRAME_DATA_URI_CACHE_BYTES_MB` 配置）
+- **输出文件大小**：在默认 CRF 下，预计为 1080p 渲染文件大小的 3-5 倍。传递 `--video-bitrate 25M` （或更高）以获得可预测的文件大小。
+
+要对 30 秒的构图进行 4K 渲染，请在现代笔记本电脑上计划几分钟的空闲时间。在渲染框上添加 `--workers 4` （或更多）以进行并行捕获。
+
+## 工作室支持
+
+Studio 中的渲染面板在格式和质量选择器旁边包含一个分辨率下拉列表。选择 `4K` （或 `4K ↕` 对于纵向）并点击 **导出** - 与 CLI 标志运行相同的超级采样路径，无需进行合成编辑。
+
+下拉列表默认为 `Auto` （以合成的创作尺寸渲染）。可用预设：
+
+- **自动** — 合成的原始尺寸
+- **1080p ↔** / **1080p ↕** — 1920×1080 / 1080×1920
+- **4K ↔** / **4K ↕** — 3840×2160 / 2160×3840
+
+该分辨率适用于每个渲染，而不是每个项目 - 您的合成文件保持不变。相同的[约束](#constraints)适用；当制作者拒绝组合时，失败会出现在 Studio 渲染队列中。
+
+您还可以从 CLI 驱动分辨率：
+
+- **新项目**：`hyperframes init my-video --resolution 4k`
+- **现有项目**：`hyperframes render --resolution 4k --output 4k.mp4`
+
+## 参见
+
+- Error 500 (Server Error)!!1500.That’s an error.There was an error. Please try again later.That’s all we know.
+- [`init` CLI 参考](/packages/cli#init) — 脚手架时的 `--resolution` 标志
+- [HDR 渲染](/guides/hdr) — 颜色管道指南； HDR + 4K 尚不受支持的组合

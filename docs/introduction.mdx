@@ -1,0 +1,114 @@
+---
+title: 介绍
+description: "编写 HTML。渲染视频。专为智能体打造。"
+---
+
+Hyperframes 是一个开源框架，可将 HTML 转换为确定性的、逐帧渲染的视频 - 因此您可以像构建网页一样定义视频。
+
+## 查看实际效果
+
+这是一个完全定义为 HTML 的视频：
+
+```html
+<div id="root" data-composition-id="demo"
+     data-start="0" data-width="1920" data-height="1080">
+
+  <video id="clip-1" data-start="0" data-duration="5"
+         data-track-index="0" src="intro.mp4" muted playsinline></video>
+
+  <h1 id="title" class="clip"
+      data-start="1" data-duration="4" data-track-index="1"
+      style="font-size: 72px; color: white;">
+    Welcome to Hyperframes
+  </h1>
+
+  <audio id="bg-music" data-start="0" data-duration="5"
+         data-track-index="2" data-volume="0.5" src="music.wav"></audio>
+</div>
+```
+
+运行 `npx hyperframes render --output demo.mp4` ，这会生成具有确定性、逐帧捕获的 MP4。每次都是相同的输入，相同的输出。没有时间轴编辑器。无专有格式。只是 HTML。
+
+<CardGroup cols={2}>
+  <Card title="观看展示" icon="play" href="/showcase">
+    您可以观看、阅读、运行和重新混合已完成的 HyperFrames 视频 — 产品发布、网站到视频演示、UI 展示和 VFX 实验。
+  </Card>
+  <Card title="浏览目录" icon="grid-2" href="/catalog/blocks/data-chart">
+    50 多个即用型块和组件 — 社交叠加、着色器过渡、数据可视化和电影效果。使用一个命令安装其中任何一个。
+  </Card>
+  <Card title="快速入门" icon="rocket" href="/quickstart">
+    在 5 分钟内从零开始渲染视频。
+  </Card>
+</CardGroup>
+
+## 为什么是HyperFrames？
+
+<Tabs>
+  <Tab title="对于开发商">
+    **您已经了解堆栈。** 组合是具有数据属性的 HTML 文件。动画使用 GSAP、Lottie、CSS 或任何可以查找给定帧的运行时。没有自定义 DSL，没有专有的组件系统，也没有 React 要求。如果您可以构建网页，那么您就可以构建视频。
+  </Tab>
+  <Tab title="对于人工智能代理">
+    **代理已经可以使用 HTML。** 大多数视频工具需要复杂的 API 或代理无法操作的拖放界面。超框架作品是纯 HTML 文档——法学硕士最擅长生成的格式。默认情况下，CLI 是非交互式的——所有输入都通过标志、纯文本输出、错误快速失败——因此代理可以在没有提示或解析的情况下驱动每个命令。
+  </Tab>
+  <Tab title="用于自动化管道">
+    **设计决定性。** 渲染管道是搜索驱动的，没有挂钟依赖性。 `frame = floor(time * fps)` — 每个帧都是通过 Chrome 的 `beginFrame` API 独立捕获并使用 FFmpeg 进行编码。相同的输入始终产生相同的输出，从而使 CI 测试和批量渲染变得可靠。
+  </Tab>
+</Tabs>
+
+<Tip>
+  Hyperframes 是专为 AI 代理集成而设计的。作品是任何法学硕士都可以生成的纯 HTML。默认情况下，CLI 是非交互式的（由标志驱动并带有纯文本输出），因此代理可以在没有交互式提示的情况下构建、渲染和 lint。为交互式终端 UI 添加 `--human-friendly`。有关详细信息，请参阅 [CLI](/packages/cli)。
+</Tip>
+
+## 它是如何运作的
+
+<Steps>
+  <Step title="编写 HTML">
+    将您的视频定义为 HTML 文档。每个元素获取计时（`data-start`、`data-duration`）和布局（`data-track-index`）的数据属性。通过帧适配器模式添加 GSAP、Lottie、CSS 过渡或任何可搜索运行时的动画。
+  </Step>
+  <Step title="在浏览器中预览">
+    运行 `npx hyperframes preview` 以在浏览器中打开实时预览。编辑您的 HTML 并立即查看更改 - 无需构建步骤，无需编译。
+  </Step>
+  <Step title="渲染为 MP4">
+    运行 `npx hyperframes render --output output.mp4` 以生成最终视频。引擎在无头 Chrome 中查找每个帧，使用 `beginFrame` 捕获它，并通过 FFmpeg 传输结果。在本地或 Docker 中运行以获得完全可重现的输出。
+  </Step>
+</Steps>
+
+## 套餐
+
+<CardGroup cols={2}>
+  <Card title="@hyperframes/核心" icon="cube" href="/packages/core">
+    类型、HTML 解析、运行时和组合 linter — 其他一切的基础。
+  </Card>
+  <Card title="@hyperframes/引擎" icon="gear" href="/packages/engine">
+    可搜索的页面到视频捕获引擎。在无头 Chrome 中加载 HTML 并逐帧捕获。
+  </Card>
+  <Card title="@hyperframes/制作人" icon="video" href="/packages/producer">
+    完整的渲染管道将捕获和 FFmpeg 编码组合到单个 API 调用中。
+  </Card>
+  <Card title="@hyperframes/工作室" icon="palette" href="/packages/studio">
+    用于交互式构建和预览时间线的可视化合成编辑器 UI。
+  </Card>
+  <Card title="HyperFrames (CLI)" icon="terminal" href="/packages/cli">
+    用于创建、预览和渲染合成的命令行工具。
+  </Card>
+</CardGroup>
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="展示柜" icon="play" href="/showcase">
+    从完成的视频和制作启动项目中获取灵感。
+  </Card>
+  <Card title="快速入门" icon="rocket" href="/quickstart">
+    在 60 秒内构建并渲染您的第一个视频
+  </Card>
+  <Card title="作文" icon="layer-group" href="/concepts/compositions">
+    了解每个视频背后基于 HTML 的数据模型
+  </Card>
+  <Card title="GSAP动画" icon="wand-magic-sparkles" href="/guides/gsap-animation">
+    使用 GSAP 添加时间线驱动的动画
+  </Card>
+  <Card title="渲染" icon="film" href="/guides/rendering">
+    在本地、Docker 或 CI 管道中渲染
+  </Card>
+</CardGroup>

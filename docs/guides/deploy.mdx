@@ -1,0 +1,146 @@
+---
+title: 部署
+description: "通过一键式模板在云中运行 Hyperframes 预览 + 渲染 API。"
+---
+
+Hyperframes 提供了两个官方部署模板，将组合包装在小型 Web 应用程序中：浏览器内预览和生成 MP4 服务器端的 `/api/render` 端点。两者都是开源的 Apache-2.0，并且可以通过一个按钮进行部署。
+
+| 模板 | 计算 | 贮存 | 部署 |
+|----------|---------|---------|--------|
+| [Vercel](https://github.com/heygen-com/hyperframes-vercel-template) | [Vercel 沙箱](https://vercel.com/docs/vercel-sandbox) (Firecracker microVM) | [Vercel Blob](https://vercel.com/docs/vercel-blob) | [vercel.com/templates/ai/hyperframes-on-vercel](https://vercel.com/templates/ai/hyperframes-on-vercel) |
+| [Cloudflare](https://github.com/heygen-com/hyperframes-cloudflare-template) | [Cloudflare 容器](https://developers.cloudflare.com/containers/)（Workers + 持久对象） | [R2](https://developers.cloudflare.com/r2/) | 存储库自述文件中的一键按钮 |
+
+两个模板使用相同的形状：
+
+- **通过 [`<hyperframes-player>`](/packages/player) Web 组件在浏览器中预览**捆绑的 `ui-3d-reveal` 组合。
+- 通过发布到 `/api/render` **渲染** 为 MP4。处理程序将合成发送到预先安装了 Chromium、FFmpeg 和 `hyperframes` 的沙盒运行时，然后将 MP4 流式传输回对象存储并返回公共 URL。
+- **本地创作**，部署预览+渲染API。组合仍然使用 `npx hyperframes init` 在您的计算机上构建，然后放入模板的 `public/compositions/` 目录中。
+
+## 选择模板
+
+<Tabs>
+  <Tab title="韦尔塞尔">
+    如果您已在 Vercel 上部署、想要零配置 Blob 存储或想要重用 Vercel 的 CI/预览环境，请选择此选项。
+
+    [![使用 Vercel 部署](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fheygen-com%2Fhyperframes-vercel-template&stores=%5B%7B%22type%22%3A%22blob%22%2C%22access%22%3A%22public%22%7D%5D)
+
+    **你得到什么**
+
+    - 具有 `<hyperframes-player>` 预览和 `POST /api/render` 路线的 Next.js 应用程序。
+    - 在 `next build` 期间构建的预烘焙 Vercel Sandbox 快照 — 冷渲染会跳过 Chromium/FFmpeg 安装并在大约 100 毫秒内从快照恢复。
+    - 在部署时自动配置的 Vercel Blob 存储。 `BLOB_READ_WRITE_TOKEN` 已为您注入。
+
+    **表现**
+
+    渲染在 `standard-4` (4 vCPU) 上运行。使用 `--workers auto`，三个并行 Chrome 工作线程比单个工作线程显着缩短了渲染时间。具体渲染时间取决于合成长度、复杂性和资源大小。
+
+    **定价**
+
+    Vercel Pro 计划包括每月的 Sandbox 积分。请参阅 [Vercel 沙盒定价](https://vercel.com/docs/vercel-sandbox/pricing)，了解当前每 vCPU 和每 GB 费率以及最新的信用额度。
+
+    <Note>
+      Vercel Functions 上限为 300 秒，压缩包大小为 50 MB，不适合 Chromium + FFmpeg。该模板专门使用 Vercel Sandbox，因为它是专门为此工作负载构建的原语 - 运行时间长达 5 小时，每个渲染最多 8 个 vCPU。
+    </Note>
+  </Tab>
+  <Tab title="云耀">
+    如果您已经使用 Cloudflare Workers、想要 R2 的自由出口或者想要完全控制渲染器图像，请选择此选项。
+
+    [![部署到 Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/heygen-com/hyperframes-cloudflare-template)
+
+    **你得到什么**
+
+    - 提供预览 HTML 并将 `/api/render` 请求转发到 `RenderContainer` 持久对象的 Worker。
+    - 内置 Chromium + FFmpeg + `hyperframes` 的预构建 OCI 容器映像 — 无需在请求时安装。
+    - 在部署时自动配置的 R2 存储桶 (`hyperframes-renders`)。
+
+    **表现**
+
+    渲染在 `standard-4`（4 个 vCPU，12 GiB）上运行。使用 `--workers auto`，三个并行 Chrome 工作线程比单个工作线程显着缩短了渲染时间。容器实例在 10 分钟不活动后会进入休眠状态，因此安静期后的下一个请求会遭受冷启动惩罚。
+
+    **定价**
+
+    Cloudflare Containers 按 10 毫秒对内存、CPU 和磁盘进行计费； R2 存储在 Cloudflare 网络内没有出口。需要 [工人付费](https://developers.cloudflare.com/workers/platform/pricing/) 计划。请参阅 [Cloudflare Containers 定价](https://developers.cloudflare.com/containers/pricing/) 和 [R2 定价](https://developers.cloudflare.com/r2/pricing/) 了解当前费率。
+
+    <Note>
+      Cloudflare 托管的 [浏览器渲染](https://developers.cloudflare.com/browser-rendering/) API 无法安装 FFmpeg — 这就是该模板使用 Cloudflare Containers 的原因，它为您提供了一个真正的 OCI 容器，位于 Worker-bound 持久对象中，最多具有 4 个 vCPU 和 12 GiB RAM。
+    </Note>
+  </Tab>
+</Tabs>
+
+## 建筑学
+
+这两个模板都遵循相同的流程：浏览器在本地播放预览，然后 POST 到渲染端点，该端点委托给带有 Chromium + FFmpeg 的沙盒运行时。
+
+```
+ Browser                    Edge / Function              Sandboxed renderer
+┌──────────────────┐       ┌────────────────────┐       ┌──────────────────────────┐
+│ <hyperframes-    │ ────▶ │ /api/render        │ ────▶ │ hyperframes render       │
+│  player>         │       │  ship composition  │       │  (Chromium + FFmpeg,     │
+│ preview iframe   │       │  → renderer        │       │   pre-installed)         │
+│                  │ ◀──── │  ← stream MP4      │ ◀──── │                          │
+│                  │  url  │  → upload to blob  │  mp4  │                          │
+└──────────────────┘       └────────────────────┘       └──────────────────────────┘
+                                    │
+                                    └─▶ Vercel Blob / Cloudflare R2
+```
+
+这两个模板中的关键成本节省器是**预烘焙渲染器**。安装 Chromium 系统库加上 `chrome-headless-shell` 需要 30-60 秒，这将主导每个冷渲染。 Vercel 的模板在构建时对沙箱进行快照； Cloudflare 的模板将所有内容烘焙到容器镜像中。两者都可以在几毫秒内恢复，并让您将整个请求预算用于实际渲染。
+
+## 交换构图
+
+两个模板均附带一个捆绑组合 (`ui-3d-reveal`)。使用您自己的：
+
+<Steps>
+  <Step title="本地创作">
+    组合是 HTML - 使用 [CLI](/packages/cli) 在您的计算机上创作它们：
+
+    ```bash Terminal
+    npx hyperframes init my-video
+    cd my-video
+    npx hyperframes preview
+    ```
+  </Step>
+  <Step title="将包放入模板中">
+    将您的作品复制到 `public/compositions/<your-name>/` 中。
+  </Step>
+  <Step title="将模板指向它">
+    - **Vercel**：编辑 `lib/preview.ts` 顶部的 `PREVIEW_COMPOSITION_DIR` 以及 `app/page.tsx` 中的尺寸（如果不是 1920×1080）。
+    - **Cloudflare**：运行 `npm run deploy` 时设置 `PREVIEW_COMPOSITION_DIR=compositions/<your-name>`，或编辑 `scripts/build.mjs` 中的默认值。如果需要，更新 `public/index.html` 中的玩家尺寸。
+  </Step>
+  <Step title="部署">
+    ```bash Terminal
+    # Vercel
+    vercel deploy
+
+    # Cloudflare
+    npm run deploy
+    ```
+  </Step>
+</Steps>
+
+## 何时使用模板而不是自己创建
+
+模板针对**预览 UI 后面的单个渲染端点**进行了优化。它们是运行托管 Hyperframes 渲染 API 的最快方法。如果您需要：
+
+- 具有重试、重复数据删除或优先级的 **渲染队列** - 从模板开始，然后添加您自己的队列（例如 Vercel 队列、Cloudflare 队列、SQS）。
+- **多租户渲染**与每用户合成上传 - 从模板开始，用运行时获取的合成替换捆绑的合成。
+- **自托管**渲染 - 请参阅[渲染指南](/guides/rendering) 并在您自己的基础设施上运行 `hyperframes render --docker`。
+
+对于其他一切，模板是建议的起点。
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="渲染" icon="film" href="/guides/rendering">
+    在本地或 Docker 中渲染合成
+  </Card>
+  <Card title="播放器套餐" icon="play" href="/packages/player">
+    在任何 HTML 页面中嵌入 `<hyperframes-player>`
+  </Card>
+  <Card title="维塞尔模板" icon="github" href="https://github.com/heygen-com/hyperframes-vercel-template">
+    Error 500 (Server Error)!!1500.That’s an error.There was an error. Please try again later.That’s all we know.
+  </Card>
+  <Card title="Cloudflare 模板" icon="github" href="https://github.com/heygen-com/hyperframes-cloudflare-template">
+    Error 500 (Server Error)!!1500.That’s an error.There was an error. Please try again later.That’s all we know.
+  </Card>
+</CardGroup>

@@ -1,0 +1,52 @@
+---
+title: "iPhone 和 MacBook 3D 展示"
+description: "真实 GLTF iPhone 15 Pro Max 和 MacBook Pro 型号，配备实时 HTML-in-Canvas 屏幕内容、变形玻璃镜头、产品评论相机编排和 360° 转盘。"
+---
+
+# iPhone 和 MacBook 3D 展示
+
+真实 GLTF iPhone 15 Pro Max 和 MacBook Pro 型号，配备实时 HTML-in-Canvas 屏幕内容、变形玻璃镜头、产品评论相机编排和 360° 转盘。
+
+`html-in-canvas` `3d` `device` `iphone` `macbook` `gltf`
+
+<Warning>
+**需要 Chrome 标志。** 启用 `chrome://flags/#canvas-draw-element` 进行实时预览。通过 CLI 渲染会自动启用该标志。 [了解更多](/guides/html-in-canvas)。
+</Warning>
+
+<video className="w-full aspect-video rounded-xl object-cover bg-zinc-100 dark:bg-zinc-800" src="https://static.heygen.ai/hyperframes-oss/docs/images/catalog/blocks/vfx-iphone-device.mp4" poster="https://static.heygen.ai/hyperframes-oss/docs/images/catalog/blocks/vfx-iphone-device.png" autoPlay muted loop playsInline />
+
+## 安装
+
+<CodeGroup>
+
+```bash Terminal
+npx hyperframes add vfx-iphone-device
+```
+
+</CodeGroup>
+
+## 细节
+
+| 财产 | 价值 |
+| --- | --- |
+| 类型 | 堵塞 |
+| 方面 | 1920×1080 |
+| 期间 | 15秒 |
+
+## 文件
+
+| 文件 | 目标 | 类型 |
+| --- | --- | --- |
+| `vfx-iphone-device.html` | `compositions/vfx-iphone-device.html` | 超框架:组合 |
+| `models/iphone.glb` | `models/iphone.glb` | 资产 |
+| `models/macbook.glb` | `models/macbook.glb` | 资产 |
+| `models/hyperframes-mobile.png` | `models/hyperframes-mobile.png` | 资产 |
+| `models/hyperframes-desktop.png` | `models/hyperframes-desktop.png` | 资产 |
+
+## 用法
+
+安装后，将该块添加到您的主机组合中：
+
+```html
+<div data-composition-id="vfx-iphone-device" data-composition-src="compositions/vfx-iphone-device.html" data-start="0" data-duration="15" data-track-index="1" data-width="1920" data-height="1080"></div>
+```

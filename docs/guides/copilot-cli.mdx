@@ -1,0 +1,190 @@
+---
+title: GitHub Copilot CLI
+description: "使用 GitHub Copilot CLI 设置 HyperFrames — 安装技能，使用斜线命令调用它们，并从终端渲染视频。"
+---
+
+GitHub Copilot CLI 为您的终端带来人工智能驱动的编码帮助。 HyperFrames 技能教它如何编写正确的合成、GSAP 时间线和特定于框架的模式 - 因此您无需亲自阅读文档即可获得有效的视频 HTML。
+
+## 先决条件
+
+- **GitHub Copilot 订阅** — 免费版、专业版、专业版+、商业版或企业版均包含 CLI 访问权限
+- **已安装 Copilot CLI** — `npm install -g @github/copilot` （或通过 [安装脚本](https://github.com/github/copilot-cli)）
+- **Node.js 22+** 和 **FFmpeg** 用于 HyperFrames CLI
+
+## 安装技巧
+
+将 HyperFrames 技能包安装到您的项目中：
+
+```bash
+npx skills add heygen-com/hyperframes
+```
+
+这会将技能目录写入项目中的 `.agents/skills/` — Copilot CLI 自动扫描工作区范围技能的路径。
+
+<Tip>
+  要使技能在您的所有项目中可用，请全局安装它们：
+
+  ```bash
+  npx skills add heygen-com/hyperframes --agent github-copilot --global
+  ```
+
+  全局技能位于 `~/.copilot/skills/` 中，并加载到每个 Copilot CLI 会话中。
+</Tip>
+
+如果您在活动会话期间安装技能，请运行 `/skills` 打开技能选择器并验证它们是否显示。安装到项目目录的新技能将在下一个提示时自动选​​取。
+
+## 使用技巧
+
+Copilot CLI 支持通过斜杠命令进行**显式调用**，也支持根据提示进行**自动检测**。
+
+### 斜杠命令
+
+在技​​能名称前面加上 `/` 前缀以显式加载它：
+
+```
+/hyperframes Create a 10-second product intro with a fade-in title and dark background.
+```
+
+```
+/gsap Add a scale-pop animation to the title element.
+```
+
+```
+/hyperframes-cli How do I render at 60fps with Docker?
+```
+
+### 自动检测
+
+Copilot 还根据每个 `SKILL.md` 中的 `description` 字段来匹配技能。如果您的提示提到构图、时间线或视频渲染，代理会加载正确的技能，而无需您指定它们：
+
+```
+Create a 9:16 TikTok hook video about AI productivity with bouncy captions.
+```
+
+当您安装了许多技能时，显式调用会更可靠 - 对于大型技能集，代理的令牌预算可能不适合每个技能描述，因此直接命名技能可以保证其加载。
+
+### 技能管理
+
+| 命令 | 它的作用 |
+|---|---|
+| `/skills` | 打开交互式技能选择器 - 浏览、启用或禁用技能 |
+| `/skills add <path>` | 将附加技能目录添加到当前会话 |
+
+## 创建并预览视频
+
+<Steps>
+  <Step title="搭建一个项目">
+    ```bash
+    npx hyperframes init my-video
+    cd my-video
+    ```
+
+    技能会自动安装在新项目中。
+  </Step>
+
+  <Step title="启动预览服务器">
+    ```bash
+    npx hyperframes preview
+    ```
+
+    在浏览器中打开 HyperFrames Studio。编辑自动重新加载。
+  </Step>
+
+  <Step title="在项目目录中启动 Copilot CLI">
+    在第二个终端中：
+
+    ```bash
+    copilot
+    ```
+  </Step>
+
+  <Step title="用技能提示">
+    ```
+    /hyperframes Create a 15-second dark-themed product intro with hype-style
+    captions and a flash transition to the CTA.
+    ```
+
+    代理在定时元素上写入有效的 HyperFrames HTML — `data-*` 属性、`class="clip"`，在 `window.__timelines` 上注册的暂停 GSAP 时间线。保存文件时预览会更新。
+  </Step>
+
+  <Step title="迭代">
+    继续提示而不重新指定完整上下文：
+
+    ```
+    Make the title 2x bigger and add a lower third at 0:03.
+    ```
+
+    ```
+    Swap the transition to a whip pan.
+    ```
+  </Step>
+
+  <Step title="使成为">
+    ```bash
+    npx hyperframes render --output output.mp4
+    ```
+
+    或者询问代理：
+
+    ```
+    /hyperframes-cli Render this composition to output.mp4 at high quality.
+    ```
+  </Step>
+</Steps>
+
+## 代理模式
+
+Copilot CLI 的代理模式可以自主处理多步骤任务 - 搭建项目、编写组合、安装注册表块以及按顺序渲染：
+
+```
+/hyperframes Scaffold a new project called "launch-video", create a 30-second
+product launch video with 5 scenes, install the flash-through-white transition
+block, and render to mp4.
+```
+
+在代理模式下，Copilot 代表您运行终端命令（例如 `npx hyperframes init` 和 `npx hyperframes render`）。在批准命令之前检查命令 - 特别是如果技能在其 `allowed-tools` 中预先批准 `shell`。
+
+<Warning>
+  仅针对您信任的技能预先批准技能 `allowed-tools` 中的 `shell` 或 `bash`。 HyperFrames 技能不会预先批准 shell 访问 - 代理将在运行终端命令之前要求确认。
+</Warning>
+
+## MCP 替代方案
+
+Copilot CLI 还支持 MCP 服务器进行基于云的创作，无需本地 CLI。使用 `--additional-mcp-config` 标志将 HyperFrames MCP 服务器添加到您的会话中：
+
+```bash
+copilot --additional-mcp-config '{"mcpServers":{"hyperframes":{"url":"https://mcp.heygen.com/mcp/hyperframes"}}}'
+```
+
+或者将配置保存到文件并引用它：
+
+```bash
+copilot --additional-mcp-config @mcp-config.json
+```
+
+出现提示时通过 OAuth 授权。有关完整详细信息，请参阅 [MCP 指南](/guides/mcp)。
+
+## 尖端
+
+- **始终以 `/hyperframes` 开始进行合成工作。** 这会加载通用 Web 知识未涵盖的完整技能上下文 - 合成规则、数据属性、GSAP 模式、标题格式。
+- **使用 `/skills` 检查技能状态。** 如果输出看起来错误，请打开技能选择器以验证 HyperFrames 技能是否已启用。
+- **在渲染之前运行 `npx hyperframes lint`。** linter 捕获代理在复杂的多场景编辑中可能错过的结构问题。
+- **让预览服务器在单独的终端中运行。** 在 Copilot CLI 中进行提示时，您会看到实时反映的每个编辑。
+- **安装用于过渡和效果的注册表块。** `npx hyperframes add shimmer-sweep` 安装预构建的块，然后提示代理将它们连接起来。
+
+## 后续步骤
+
+<CardGroup cols={2}>
+  <Card title="提示指南" icon="message" href="/guides/prompting">
+    产生更好作品的词汇和模式。
+  </Card>
+  <Card title="目录" icon="grid-2" href="/catalog/blocks/data-chart">
+    代理可以安装和连接 50 多个即用型块。
+  </Card>
+  <Card title="GSAP动画" icon="wand-magic-sparkles" href="/guides/gsap-animation">
+    运动原理和时间轴创作。
+  </Card>
+  <Card title="管道指南" icon="list-check" href="/guides/pipeline">
+    对于多节拍视频，遵循 7 步结构代理。
+  </Card>
+</CardGroup>

@@ -1,0 +1,73 @@
+---
+title: "发布视频"
+description: "HeyGen 产品发布视频背后的开源 HyperFrames 作品 — 您可以阅读、运行和重新混合的真实制作项目。"
+---
+
+HeyGen 团队在 HyperFrames 中构建其发布视频。每个作品（包括最初的 HyperFrames 公告、时间线编辑器展示和网站到视频演示）都位于一个公共存储库中，您可以阅读、运行和重新混合。
+
+<Card title="HyperFrames发射" icon="github" href="https://github.com/heygen-com/hyperframes-launches">
+  HeyGen 产品发布视频背后的开源 HyperFrames 作品。
+</Card>
+
+想先浏览完成的视频吗？从[展示](/showcase)开始。
+本页是针对同一启动项目的更深入的生产文章。
+
+## 里面有什么
+
+每个子目录都是一个独立的 HyperFrames 项目 — `index.html`、`compositions/`、`assets/` 以及您可以比较的渲染输出：
+
+| 项目 | 它显示了什么 | 来源 |
+| --- | --- | --- |
+| **HyperFrames 推出** | 原始公告视频 — 49.7 秒，玻璃框架介绍，CSS / GSAP / Lottie / 着色器 / Three.js 弹性部分，完整的叙述弧。 | [`hyperframes-launch/`](https://github.com/heygen-com/hyperframes-launches/tree/main/hyperframes-launch) |
+| **网站 → 超框架** | [网站到视频](/guides/website-to-video) 工作流程的配套 — 捕获网站并为其制作动画。 | [`website-to-hyperframes/`](https://github.com/heygen-com/hyperframes-launches/tree/main/website-to-hyperframes) |
+| **时间轴编辑器启动** | HyperFrames 时间线编辑器的 60 fps 显示视频：后期 SFX 冷开、微调提示的聊天螺旋、编辑器显示。 | [`timeline-launch/`](https://github.com/heygen-com/hyperframes-launches/tree/main/timeline-launch) |
+| **纹理启动** | 纹理蒙版文本+着色器驱动的背景，用作启动预告片。 | [`texture-launch-video/`](https://github.com/heygen-com/hyperframes-launches/tree/main/texture-launch-video) |
+| **视觉特效 × HeyGen 组合** | 将 VFX 文本光标场景与 HeyGen iPhone 画布测试链接在一起的多幕视频 — 可作为将两个现有项目合并到一个渲染中的参考。 | [`vfx-heygen-combined/`](https://github.com/heygen-com/hyperframes-launches/tree/main/vfx-heygen-combined) |
+
+故事板 (`STORYBOARD.md`)、设计说明 (`DESIGN.md`) 和移交文档 (`HANDOFF.md`) 位于源代码旁边，因此您不仅可以看到代码，还可以看到制作思维：VO 方向、节拍时间、颜色/风格决策。该结构遵循 [Hyperframes pipeline](/guides/pipeline)，它详细记录了每个工件。
+
+## 为什么这些有用
+
+这些不是玩具示例。它们与 HeyGen 在公开发布视频中发布的作品相同，其结构与实际制作工作的结构相同：
+
+- **多组合项目。** 大多数启动都是将 4-8 个子组合连接到一个根时间线中 - 当您的 `npx hyperframes init --example` 启动器超出单个文件时非常有用。
+- **真正的适配器组合。** GSAP 时间轴、Lottie 动画、自定义着色器、Three.js 场景和 CSS 关键帧全部共存于一个渲染中。了解团队如何在单个组合中[启动多个适配器](/guides/gsap-animation)。
+- **生产级计时。** ElevenLabs VO + 每节拍 SFX + 下划线与帧精确运动混合。故事板描述了时间决策；消息来源显示他们已被处决。
+- **没有专有插件。** 所有内容都使用您本地拥有的相同 `hyperframes render` 进行渲染 - 引擎没有仅限内部的分支。
+
+## 克隆
+
+该存储库使用 Git LFS 来处理视频、音频、图像和字体资源：
+
+```bash Terminal
+brew install git-lfs   # macOS — or your platform's git-lfs install
+git lfs install
+git clone https://github.com/heygen-com/hyperframes-launches.git
+cd hyperframes-launches/hyperframes-launch
+hyperframes preview    # opens the studio for that launch
+```
+
+仅克隆源（跳过大型 LFS 资产并按需拉取）：
+
+```bash Terminal
+GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/heygen-com/hyperframes-launches.git
+cd hyperframes-launches
+git lfs pull --include="hyperframes-launch/assets/*"
+```
+
+## 后续步骤
+
+<CardGroup cols={2}>
+  <Card title="示例" icon="layer-group" href="/examples">
+    入门模板 — `npx hyperframes init --example` 为您提供的内容。
+  </Card>
+  <Card title="作文" icon="diagram-project" href="/concepts/compositions">
+    这些发布所基于的成分数据模型。
+  </Card>
+  <Card title="GSAP动画" icon="wand-magic-sparkles" href="/guides/gsap-animation">
+    这些项目使用的时间线模式。
+  </Card>
+  <Card title="采用者" icon="users" href="/community/adopters">
+    其他使用 HyperFrames 的组织。
+  </Card>
+</CardGroup>

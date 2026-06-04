@@ -1,0 +1,371 @@
+---
+title: "@hyperframes/制作人"
+description: "完整的 HTML 到视频渲染管道，具有编码、音频混合和 Docker 支持。"
+---
+
+生产者包将[引擎](/packages/engine) 帧捕获与 FFmpeg 编码相结合，以提供完整的 HTML 到视频渲染管道。它支持 MP4 (h264) 和 WebM（具有 alpha 透明度的 VP9），并处理运行时注入、就绪门、音频混合和可选的基于 Docker 的确定性渲染。
+
+```bash
+npm install @hyperframes/producer
+```
+
+## 何时使用
+
+**当您需要时使用 `@hyperframes/producer`：**
+- 以编程方式从 Node.js 将合成渲染为 MP4 或 WebM（例如，在后端服务或 CI 管道中）
+- 通过对管道的细粒度控制构建自定义渲染服务
+- 针对黄金基线运行视觉回归测试
+- 不同配置下的基准渲染性能
+
+**如果您愿意，请使用不同的包：**
+- 从命令行渲染，无需编写代码 - 使用 [CLI](/packages/cli) (`npx hyperframes render`)
+- 在浏览器中预览合成 — 使用 [CLI](/packages/cli) 或 [studio](/packages/studio)
+- 无需编码即可捕获帧 — 使用 [engine](/packages/engine)
+- Lint 或解析 HTML 组合 — 使用 [core](/packages/core)
+
+<Tip>
+  如果您正在构建只需要渲染视频的 Web 应用程序或脚本，那么 [CLI](/packages/cli) 是最快的路径。生产者包适用于需要在 Node.js 内部进行编程控制的情况。
+</Tip>
+
+## 它的作用
+
+制作人协调完整的渲染管道：
+
+<Steps>
+  <Step title="加载合成 HTML">
+    读取您的 `index.html` 和任何引用的子组合。
+  </Step>
+  <Step title="注入 Hyperframes 运行时">
+    添加管理时间线搜索、剪辑生命周期和媒体播放的运行时脚本。
+  </Step>
+  <Step title="等待就绪门">
+    轮询 `window.__playerReady` 和 `window.__renderReady` 以确保在捕获开始之前加载所有资源（字体、图像、视频）。
+  </Step>
+  <Step title="通过引擎捕获帧">
+    使用 [engine's](/packages/engine) BeginFrame 管道将每个帧捕获为像素缓冲区。
+  </Step>
+  <Step title="通过 FFmpeg 编码为 MP4 或 WebM">
+    使用选定的质量预设将帧缓冲区传输到 FFmpeg。 MP4使用h264； WebM 使用带有 alpha 透明度支持的 VP9。
+  </Step>
+  <Step title="混合音轨">
+    从视频剪辑和音频元素中提取音频，应用 `data-volume` 和 `data-media-start` 偏移量，并将它们混合到最终的 MP4 中。
+  </Step>
+</Steps>
+
+## 程序化使用
+
+生产者使用两步 API：创建渲染作业配置，然后执行它。
+
+```typescript
+import { createRenderJob, executeRenderJob } from '@hyperframes/producer';
+
+const job = createRenderJob({
+  fps: 30,
+  quality: 'standard',
+});
+
+await executeRenderJob(job, './my-video', './output.mp4');
+```
+
+### 渲染配置
+
+```typescript
+import { createRenderJob } from '@hyperframes/producer';
+
+const job = createRenderJob({
+  fps: 30,                   // integer, or { num: 30000, den: 1001 } for NTSC
+  quality: 'standard',       // 'draft', 'standard', or 'high'
+  format: 'mp4',             // 'mp4', 'webm', 'mov', or 'png-sequence'
+  workers: 4,                // Parallel render workers (1-8)
+  useGpu: false,             // GPU-accelerated encoding
+  debug: false,              // Debug logging
+});
+```
+
+#### 具有透明度的 WebM
+
+设置 `format: 'webm'` 使用 VP9 Alpha 以透明背景渲染：
+
+```typescript
+const job = createRenderJob({
+  fps: 30,
+  quality: 'standard',
+  format: 'webm',
+});
+
+await executeRenderJob(job, './my-overlay', './overlay.webm');
+```
+
+当 `format: 'webm'` 时：
+- 帧被捕获为 PNG（保留 Alpha 通道）
+- Chrome的页面背景通过CDP设置为透明
+- FFmpeg 使用 VP9 + `yuva420p` 像素格式进行编码
+- 音频编码为 Opus（而不是 MP4 的 AAC）
+
+#### HDR输出
+
+设置 `hdr: true` 以启用 HDR 检测。制作者会探测每个视频和图像源的 BT.2020 / PQ / HLG 颜色标记 - 如果找到任何 HDR 源，则输出将使用带有 HDR10 静态元数据的 H.265 10 位 BT.2020。仅 SDR 组合不受影响。
+
+```typescript
+const job = createRenderJob({
+  fps: 30,
+  quality: 'standard',
+  format: 'mp4',
+  hdr: true,
+});
+
+await executeRenderJob(job, './my-video', './output.mp4');
+```
+
+当 `hdr: true` 时：
+- 通过 `ffprobe` 探测源；当两者都存在时，PQ 优先于 HLG
+- HDR 视频和图像被提取为 16 位线性光像素并本地合成
+- SDR DOM 叠加层在叠加到顶部之前从 sRGB → BT.2020 转换
+- 输出使用 `libx265` 与 `yuv420p10le` 和 HDR10 母带/内容光级别元数据
+- `format` 必须是 `'mp4'` — `'mov'` 和 `'webm'` 回退到 SDR
+- HDR `<img>` 支持**仅限静态图像**；带有 HDR 标签的动画图像仅使用第一帧
+
+有关源要求、后备规则和验证的完整详细信息，请参阅 [HDR 渲染](/guides/hdr)。
+
+### 进度回调
+
+```typescript
+import type { ProgressCallback, RenderStatus } from '@hyperframes/producer';
+
+const onProgress: ProgressCallback = (status: RenderStatus) => {
+  console.log(`Status: ${status}`);
+  // Statuses: "queued" | "preprocessing" | "rendering" | "encoding"
+  //           | "assembling" | "complete" | "failed" | "cancelled"
+};
+```
+
+### 消除
+
+```typescript
+import { RenderCancelledError } from '@hyperframes/producer';
+
+try {
+  await executeRenderJob(job);
+} catch (err) {
+  if (err instanceof RenderCancelledError) {
+    console.log(`Cancelled: ${err.reason}`);
+    // reason: "user_cancelled" | "timeout" | "aborted"
+  }
+}
+```
+
+## HTTP服务器
+
+生产者包括一个内置的 HTTP 服务器，用于作为渲染服务运行：
+
+```typescript
+import { startServer } from '@hyperframes/producer/server';
+
+await startServer({ port: 8080 });
+```
+
+### 服务器端点
+
+| 方法 | 小路 | 描述 |
+|--------|------|-------------|
+| `POST` | `/render` | 阻止渲染 — 返回 JSON 结果 |
+| `POST` | `/render/stream` | 使用服务器发送的事件进行流式渲染 |
+| `POST` | `/lint` | Lint 问题的组合 |
+| `GET` | `/health` | 健康检查 |
+| `GET` | `/outputs/:token` | 下载渲染的 MP4 |
+
+对于自定义服务器集成，请使用较低级别的处理程序：
+
+```typescript
+import { createRenderHandlers, createProducerApp } from '@hyperframes/producer/server';
+
+// Get individual request handlers
+const handlers = createRenderHandlers(options);
+
+// Or get a full Hono app
+const app = createProducerApp(options);
+```
+
+## Docker 渲染
+
+对于确定性输出，制作者可以使用固定的 Chrome 版本和字体集在 Docker 容器内进行渲染。这保证了机器之间的相同输出——对于 CI 管道和生产服务至关重要。
+
+```bash
+# Via the CLI (recommended)
+npx hyperframes render --docker --output output.mp4
+```
+
+<Info>
+  Docker 模式需要安装并运行 Docker。运行 `npx hyperframes doctor` 来验证您的环境。有关 Docker 模式具有确定性的详细信息，请参阅[确定性渲染](/concepts/determinism)。
+</Info>
+
+## 质量预设
+
+| 预设 | 解决 | 编码 | 使用案例 |
+|--------|-----------|----------|----------|
+| `draft` | 原来的 | 快速CRF | 快速迭代，预览编辑 |
+| `standard` | 原来的 | 平衡CRF | 制作渲染、分享 |
+| `high` | 原来的 | 高质量的CRF | Error 500 (Server Error)!!1500.That’s an error.There was an error. Please try again later.That’s all we know. |
+
+## GPU编码
+
+生产者支持硬件加速编码以实现更快的渲染：
+
+| 平台 | 编码器 | 选择 |
+|----------|---------|-----------|
+| 英伟达 | NVENC | 自动检测 |
+| macOS | 视频工具箱 | 自动检测 |
+| Linux | 汽 | 自动检测 |
+| 英特尔 | QSV | 自动检测 |
+| Windows 上的 AMD | AMF | 自动检测 |
+
+启用 GPU 编码后，Hyperframes 会自动检测可用的 FFmpeg 硬件编码器。要检查您的系统的功能：
+
+```bash
+npx hyperframes doctor
+```
+
+CLI 自动启用本地 Chrome/WebGL GPU 捕获，并支持 `--no-browser-gpu` 作为选择退出。直接使用生产者 API 时，传递引擎配置覆盖：
+
+```typescript
+import { resolveConfig } from '@hyperframes/producer';
+
+const job = createRenderJob({
+  fps: 30,
+  quality: 'standard',
+  producerConfig: resolveConfig({ browserGpuMode: 'hardware' }),
+});
+```
+
+## 额外出口
+
+为了方便起见，生产者还重新导出关键引擎功能：
+
+| 出口 | 描述 |
+|--------|-------------|
+| `createCaptureSession()` | 创建帧捕获会话 |
+| `initializeSession()` | 使用组合初始化会话 |
+| `captureFrame()` / `captureFrameToBuffer()` | 捕获单个帧 |
+| `closeCaptureSession()` | 清理捕获会话 |
+| `getCompositionDuration()` | 获取乐曲总时长 |
+| `getCapturePerfSummary()` | 获取捕获性能指标 |
+| `createFileServer()` | 创建用于服务资产的 HTTP 文件服务器 |
+| `createVideoFrameInjector()` | 为页面创建视频帧注入器 |
+| `resolveConfig()` / `DEFAULT_CONFIG` | 生产者配置 |
+| `createConsoleLogger()` / `defaultLogger` | 记录实用程序 |
+| `quantizeTimeToFrame()` | 将时间转换为帧边界 |
+| `resolveRenderPaths()` | 解析渲染目录路径 |
+| `prepareHyperframeLintBody()` / `runHyperframeLint()` | Linting 实用程序 |
+
+## 记录
+
+生产者提供了一个小型可插拔记录器，因此调用者可以注入 Pino、Winston 或任何结构化后端，而无需依赖它。
+
+```ts
+export type LogLevel = "error" | "warn" | "info" | "debug";
+
+export interface ProducerLogger {
+  error(message: string, meta?: Record<string, unknown>): void;
+  warn(message: string, meta?: Record<string, unknown>): void;
+  info(message: string, meta?: Record<string, unknown>): void;
+  debug(message: string, meta?: Record<string, unknown>): void;
+  isLevelEnabled?(level: LogLevel): boolean;
+}
+```
+
+`createConsoleLogger(level)` 返回一个控制台支持的实现，该实现按级别进行过滤并对可选的 `meta` 对象进行 JSON 字符串化。 `defaultLogger` 是 `level="info"` 处的单例。
+
+### 跳过热路径中昂贵的元数据
+
+`isLevelEnabled` 是**可选**，因此现有的自定义记录器保持不变。当您在热循环中构建一个重要的元对象只是为了附加到调试日志时，请使用 nullish-coalescing 模式来控制构造，以便生产运行 (`level=info`) 无需支付任何费用，而没有该方法的记录器的行为与以前完全相同：
+
+```ts
+// Inside a per-frame loop in the encode pipeline:
+if (i % 30 === 0 && (log.isLevelEnabled?.("debug") ?? true)) {
+  const hdrEl = stackingInfo.find((e) => e.isHdr);
+  log.debug("[Render] HDR layer composite frame", {
+    frame: i,
+    time: time.toFixed(2),
+    hdrElement: hdrEl
+      ? { z: hdrEl.zIndex, visible: hdrEl.visible, width: hdrEl.width }
+      : null,
+    stackingCount: stackingInfo.length,
+    activeTransition: activeTransition?.shader,
+  });
+}
+```
+
+`?? true` 回退意味着使用未实现 `isLevelEnabled` 的自定义记录器的调用者继续构建并传递元对象 - 优化是针对需要它的记录器实现的选择。
+
+## 回归测试
+
+生成器包含一个回归工具，用于将渲染输出与黄金基线进行比较。这对于在更改运行时、引擎或渲染管道时捕获视觉回归非常有用。
+
+```bash
+cd packages/producer
+
+# Build the test Docker image
+bun run docker:build:test
+
+# Run regression tests (compares output against golden baselines)
+bun run docker:test
+
+# Regenerate golden baselines after intentional changes
+bun run docker:test:update
+```
+
+## 标杆管理
+
+找到适合您的硬件的最佳渲染设置：
+
+```bash
+# Via the CLI
+npx hyperframes benchmark
+
+# Directly from the producer package
+cd packages/producer
+bun run benchmark
+```
+
+该基准测试运行多个具有不同质量和 FPS 设置的组合，并报告每个组合的时间。
+
+## 外部资产（`projectDir` 之外的文件）
+
+组合可以引用项目外部资源的绝对路径
+目录 — `~/Downloads` 中的本地画外音、共享驱动器映像、
+在绝对路径上生成的夹具。生产者通过以下方式处理这些问题：
+
+1. **检测。** 在编译期间，HTML 编译器会遍历每个
+   `[src]` / `[href]` 以及 `<style>` 中的每个 `url(...)`。一条路径
+   解析为 `projectDir` 之外的文件被收集到
+   `externalAssets` 地图。
+2. **经过消毒的密钥。** 每个绝对路径都被转换为安全的、
+   以 `hf-ext/` 为前缀的跨平台相对密钥。视窗
+   驱动器盘符冒号被剥离 (`D:\foo\x.wav` → `hf-ext/D/foo/x.wav`)
+   以便 `path.join(compileDir, key)` 保留在编译中
+   每个操作系统上的目录。
+3. **复制 + 重写。** Orchestrator 将文件复制到
+   `<compileDir>/hf-ext/...` 并且 HTML 被重写以指向
+   已消毒的钥匙。然后，文件服务器同时服务于项目内部和
+   外部资产同根同源。
+
+遏制检查使用 `path.relative()` 而不是硬编码
+分隔符，因此外部资源在 macOS、Linux 和
+视窗。请参阅 `packages/producer/src/utils/paths.ts` 了解帮助程序。
+
+## 相关套餐
+
+<CardGroup cols={2}>
+  <Card title="命令行界面" icon="terminal" href="/packages/cli">
+    命令行界面，包装生产者以进行渲染、预览等。
+  </Card>
+  <Card title="引擎" icon="gear" href="/packages/engine">
+    生产者用来抓取帧的低级捕获管道。
+  </Card>
+  <Card title="核" icon="cube" href="/packages/core">
+    生产者所依赖的类型、运行时和 linter。
+  </Card>
+  <Card title="工作室" icon="palette" href="/packages/studio">
+    用于在与制作人一起渲染之前构建合成的可视化编辑器。
+  </Card>
+</CardGroup>

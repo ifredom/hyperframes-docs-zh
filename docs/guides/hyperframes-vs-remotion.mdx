@@ -1,0 +1,162 @@
+---
+title: HyperFrames与远程
+description: "我们为什么构建 Hyperframes、它在实践中与 Remotion 有何不同，以及每种工具的适用范围。"
+---
+
+[Remotion](https://www.remotion.dev) 是一个很棒的项目，我们在 HeyGen 的生产流程中使用 Remotion 已有好几个月了。 Remotion 提倡使用代码来编排和动画视频制作的想法，并证明无头 Chrome 可以成为可靠的、确定性的视频渲染器。 Hyperframes 源代码中的几种模式直接来自 Remotion 团队首创的模式 — Chrome 启动标志、端口选择、image2pipe 流式传输到 FFmpeg、按顺序帧缓冲。我们特意在代码中保留了归属注释，以便任何阅读源代码的人都可以看到谱系。
+
+本指南是由构建 Hyperframes 的团队编写的，对 Hyperframes 和 Remotion 的不同之处进行了诚实的细分。我们选择了不同的赌注；每个人都有对方没有的优点，本文档将介绍两者。
+
+## 我们为何构建超框架
+
+当我们在 HeyGen 扩展代码到视频的管道时，我们在 React 优先的创作模型中不断遇到同样的限制。我们在内部争论是否继续构建 Remotion 还是从头开始编写渲染器。有两个因素促使我们构建超框架。
+
+### 1. 代理原生工作流程
+
+在我们的评估中，与直接编写 HTML + [GSAP](/guides/gsap-animation) 作品的相同法学硕士相比，编写 Remotion 作品的法学硕士产生的创造性视觉输出较少，并且需要更多的护栏和提示。
+
+两个相关的问题使情况变得更加复杂：
+
+- 具有自己内部时钟的动画库（GSAP、Anime.js、Motion One）无法与 React 的每帧渲染完美地组合。
+- 不是用 React 编写的任意 HTML 或 CSS 没有进入 React 组合的干净路径 - 你必须重写它。
+
+### 2. 人工编辑工作流程
+
+我们希望渲染层和数据层使用相同的代码，因为我们需要在代理体验之上为人类提供 UI。
+
+HTML 既是渲染层，又是可编辑的事实来源——相同的 DOM 是您所看到和编辑的内容。这使得真正的可视化编辑器（选择、拖放、属性面板、时间轴）的构建更加自然，与 [Paper.Design](https://paper.design) 的方式相同。对于 Remotion，事实来源是代码加上构建步骤，因此通过可视化编辑器进行往返是痛苦且脆弱的。 Remotion 团队在这方面取得了进展，但是在 React 之上构建实时编辑器比在 HTML 之上构建实时编辑器要困难得多。
+
+我们将超框架构建为最适合代理的原生框架，同时可以轻松地在其上构建人机界面。
+
+## 一目了然
+
+| | **HyperFrames** | **远程** |
+| --- | --- | --- |
+| 创作 | HTML + CSS + GSAP | 反应组件 (TSX) |
+| 运行时 | 浏览器 DOM，无框架 | 每帧反应协调 |
+| 构建步骤 | 没有任何; `index.html` 按原样播放 | 必需（webpack、捆绑器） |
+| 库时钟动画（GSAP、Anime.js、Motion One） | 可寻找；帧精确 | 渲染期间按挂钟播放 |
+| 任意 HTML/CSS 传递 | 粘贴并设置动画 | 重写为 JSX |
+| 分布式渲染 | [AWS Lambda](/deploy/aws-lambda) 支持 | [Remotion Lambda](https://www.remotion.dev/lambda)，成熟并经过生产测试 |
+| [HDR 输出](/guides/hdr) | 支持 | 记录为不受支持 |
+| 渲染源上的可视化编辑器 | 本国的;相同的 DOM 是可编辑的 | 源代码是代码加上构建步骤 |
+| 执照 | [阿帕奇2.0](https://github.com/heygen-com/hyperframes/blob/main/LICENSE) | [商业](https://www.remotion.pro/license) |
+
+本指南的其余部分将介绍每一行的含义以及每个工具的实际优势。
+
+## 核心区别：React 与 HTML
+
+Hyperframes 和 Remotion 都驱动无头 Chrome。两者都是确定性的。兼有船舶代理技能。他们在一个决定上存在分歧：主要作者写了什么。
+
+Remotion 的赌注是 React。视频合成是 React 组件。您将获得类型化 JSX、React 生态系统、组件重用以及整个 React 工具。 Remotion 的优势来自于对这一表面的承诺：多年的生产使用、超大规模的 Lambda、大型社区、谨慎的类型安全 API。
+
+Hyperframes 的赌注是 HTML。视频作品是 HTML 页面。您可以粘贴登陆页面、设计系统组件或 CodePen 演示并为其设置动画。我们认为这对于两个特定用例来说是正确的界面：编写视频的 AI 代理，以及直接在渲染器使用的 DOM 上构建的可视化编辑器。
+
+不同的赌注，不同的实力。本文档的其余部分对每个内容出现的位置进行了细分。
+
+## 差异在实践中意味着什么
+
+### 代理在 HTML 中比在 React 中更好地表达视觉效果
+
+当法学硕士编写HyperFrames时，它正在编写接受最严格培训的媒体。浏览器所见的网络——来自 CodePen 的 HTML、CSS、JavaScript、GSAP 习惯用法、25 年以上积累的网络动画内容——是模型训练数据中最深的井。 React 特定的源代码所占的份额要小得多。
+
+从在生产环境中运行两个系统开始：要求编写 Remotion 组合的代理需要花费代币来学习框架规则（允许使用哪些钩子、禁止哪些 API、如何构建项目），然后才能发挥创意。输出往往集中在狭窄的视觉词汇上——居中的标题、库存转换、传统的排版。使用 GSAP 编写 HTML 的同一个代理可以达到更广泛的创意范围，因为这就是它的训练数据的样子。
+
+### 拥有自己的时钟的动画库
+
+要求代理将 GSAP 动画或现有网页移植到 Remotion 中，第一次尝试就会丢失详细信息：时间细微差别、音频电平关系、文本大小。 HTML 优先路径完全避免了翻译步骤。
+
+我们为这两个工具提供了相同的 4 秒 GSAP 时间轴：“HYPERFRAMES”的 11 个字母以轻松退出的方式交错输入，保持 1.5 秒，然后每个字母旋转并落出框架。相同的动画代码，相同的缓动，相同的交错。我们唯一改变的是渲染器。
+
+**HyperFrames输出 - 动画的样子：**
+
+<img src="https://static.heygen.ai/hyperframes-oss/docs/images/comparisons/gsap-hf.gif" alt="HyperFrames GSAP 渲染 — 字母进入、保持，然后在整整 4 秒内消失" />
+
+全部四秒均已使用。字母一个接一个地飞进来，整个单词在中心停留大约一秒半，然后字母旋转并掉落。
+
+**远程输出 - 相同的时间线，相同的代码：**
+
+<img src="https://static.heygen.ai/hyperframes-oss/docs/images/comparisons/gsap-remotion.gif" alt="远程 GSAP 渲染 — GSAP 在第一秒内播放整个时间线，将大部分渲染保留为空舞台" />
+
+GSAP 大约在渲染挂钟时间的第一秒内播放整个 4 秒动画。当 Remotion 捕获后面的帧时，GSAP 的时间线已经完成并且每个字母都已退出 - 渲染的其余部分捕获一个空的阶段。
+
+**原因：** GSAP 通过 `performance.now()` 驱动自己的时间线，该时间线在渲染过程中以实时速度滴答作响。 Hyperframes 会暂停 GSAP，并在捕获每个帧之前将其查找到 `frame / fps`，因此该库与输出同步运行。 Remotion 没有等效的原语，因此 GSAP 的内部行情以挂钟速度在时间线上运行，而 Remotion 在入口期间捕获少量帧，之后捕获大部分空帧。
+
+GSAP 支持的一切——SplitText、ScrollTrigger、MotionPath、物理、CodePen 上 15 年的片段——在HyperFrames中的工作方式相同。该模式可以推广到 Anime.js、Motion One 以及任何其他拥有自己时钟的库；任何没有自己时钟的 JS 库都可以工作。将库时钟包装在 Remotion 组件中是可能的，但很笨拙，并且您放弃了库所擅长的大部分功能。
+
+请参阅 [GSAP 动画指南](/guides/gsap-animation) 了解其集成方式，并参阅 [确定性渲染](/concepts/determinism) 了解搜索驱动捕获在幕后的工作原理。
+
+### 任意 HTML、CSS、JavaScript
+
+每个网页都是一个潜在的超框架组合。登陆页面。克劳德设计的文物。设计系统文档。 CodePen 嵌入。您粘贴 HTML 并渲染。
+
+Remotion 要求您首先进行翻译：将 HTML 重写为 JSX，将 CSS 转换为 React，使用引用和效果将命令式代码（Canvas、WebGL、GSAP）包装在 React 组件中。每个翻译步骤对于代理或人类来说都有可能失去保真度或引入错误。无论如何，翻译都是往返工作——两个框架最终都将 HTML 提供给浏览器进行渲染。
+
+[网站到视频指南](/guides/website-to-video) 逐步介绍 HTML 优先模型支持的完整捕获到渲染管道。
+
+### 边缘基元的自动回退
+
+HyperFrames有两种捕获模式。
+
+- **BeginFrame 模式** (Linux + `chrome-headless-shell`) 通过 `HeadlessExperimental.beginFrame` 以原子方式驱动 Chrome 的合成器，在机器上生成逐字节的可再现帧。
+- **屏幕截图模式**（macOS、Windows，并作为自动后备）实时运行 Chrome 并拍摄普通屏幕截图 - 与 Remotion 使用的方法相同。
+
+渲染器在编译时检查每个合成，并在发现 BeginFrame 无法处理的基元时返回到屏幕截图模式：内联 `<iframe>`、原始 `requestAnimationFrame` 在 [帧适配器](/concepts/frame-adapters) 外部循环。它注入了虚拟时间 shim，因此 rAF 和 iframe 内容保持帧驱动而不是挂钟驱动。您会得到一个解释回退的诊断信息，并且渲染会产生明显正确的输出。当合成可以在 BeginFrame 模式下运行时，您可以免费获得确定性。
+
+实践中：GSAP 时间轴、CSS `@keyframes`（通过 Web 动画 API 适配器）、Lottie、Three.js 和 Web 动画 API 都在 BeginFrame 模式下确定性渲染。原始画布循环和实时网络嵌入会自动获取屏幕截图模式。
+
+### React 组件重用（Remotion 的主场）
+
+如果您的团队已经拥有 React 组件的设计系统，Remotion 可以让您根据应用程序中提供的相同基元来编写视频。类型安全、IDE 补全、跨文件重构——React 为开发人员人体工程学带来的一切。对于现有 React 投资的团队来说，这是 Hyperframes 无法比拟的真正优势。
+
+### 分布式渲染
+
+[Remotion Lambda](https://www.remotion.dev/lambda) 将长视频拆分为数百个 AWS Lambda 函数。它是成熟的、经过生产测试且有详细记录的——团队已经在生产中使用了多年。
+
+Hyperframes 现在提供了一个 [AWS Lambda 部署路径](/deploy/aws-lambda)：Step Functions 工作流程背后的一个 Lambda 函数，该函数在块工作线程之间进行渲染，将中间结果存储在 S3 中，并公开 `lambda render`、`lambda render-batch`、进度轮询和 SDK 使用情况。 Surface 比 Remotion Lambda 更新，因此实际的权衡是相对于 Hyperframes 的 HTML 原生组合模型的成熟度。
+
+### 对渲染源进行可视化编辑（Hyperframes 的自然选择）
+
+您渲染的 DOM 就是您编辑的 DOM。 [Hyperframes Studio](/packages/studio) 在实时 iframe 中预览合成，并且由于渲染器和编辑器共享一个 DOM，因此直接操作会针对渲染管道消耗的相同事实来源进行操作。这种用户体验（单击选择、拖动重新定位、在面板中编辑属性）今天已经提供了标题，并且在相同的架构基础上构建了更广泛的元素覆盖范围。
+
+在 React 之上构建相同的编辑器更加困难，因为事实来源是代码加上构建步骤。将可视化编辑往返回 JSX 意味着重新编译。这就是为什么像 [Paper.Design](https://paper.design) 这样的工具首先选择 HTML 作为可编辑源。
+
+### HDR输出
+
+这两种工具目前都通过无头 Chrome 进行渲染，该 Chrome 输出 sRGB。远程[将此记录为不受支持](https://www.remotion.dev/docs/hdr)。HyperFrames[支持 HDR 输出](/guides/hdr) 通过将 DOM 层与本机 HLG/PQ 视频相结合的两遍合成管道。
+
+## 开源与源代码可用
+
+这是两个项目之间最明显的差异之一，也是团队选择其中一个项目的最常见原因之一。
+
+| | **HyperFrames** | **远程** |
+| --- | --- | --- |
+| 分类 | 开源（[OSI 批准](https://opensource.org/licenses/Apache-2.0)） | 源码可用，非开源 |
+| 执照 | [阿帕奇2.0](https://github.com/heygen-com/hyperframes/blob/main/LICENSE) | [自定义远程许可证](https://www.remotion.pro/license) |
+| 商业用途 | 任何规模免费 | 需要高于小团队门槛的付费公司许可证 |
+| 每次渲染费用 | 没有任何 | 是的，高于阈值 |
+| 再分配 | Apache 2.0 允许 | 受远程许可证限制 |
+
+这两个项目都在 GitHub 上发布了源代码，但许可证的工作方式却截然不同。 Apache 2.0 是一个[开源计划批准的许可证](https://opensource.org/licenses/Apache-2.0) — 您可以自行托管、修改、重新分发和以任何规模商业使用超框架，无需每次渲染费用，也没有席位上限。远程许可证是自定义商业许可证：您可以阅读代码并为小型团队自行托管，但超过其阈值的商业用途需要付费的公司许可证。
+
+如果开源许可对您很重要（OSI 合规性、再分发权、无每次使用费用、长期独立于供应商的定价决策），那么这是首要决策点。如果您的用例适合 Remotion 的免费套餐，或者您的公司愿意使用商业许可证，那么这不是问题。请参阅[远程许可证页面](https://www.remotion.pro/license) 了解其当前条款。
+
+我们在 Apache 2.0 下开源了 Hyperframes，因此任何人都可以在其上进行构建（包括商业上的、任何规模的），因此该项目可以比任何一家公司的优先事项更长久。
+
+## 回顾
+
+Remotion 和 Hyperframes 之间的唯一区别是 React 与 HTML（+ CSS + JavaScript）的选择。这一决定导致了下游的许多分歧。对于我们的需求（大多数是代理的原生需求，其架构旨在支持人类的 UI 层），HTML + CSS + JavaScript 是显而易见的选择：
+
+1. 代理已经在 HTML 中“思考”。法学硕士见过大量的网络代码。
+2. 真正的“一个文件输入，视频输出”。没有 `package.json`，没有安装，没有捆绑器配置，没有组合设置。更少的移动部件=自动化和代理工作流程中随机故障的减少。
+3. 最高的创意上限——浏览器可以呈现的任何内容，HTML 都可以表示。
+4. HTML 既是渲染层，又是可编辑的事实来源。你看到的和你编辑的都是同一个 DOM。
+
+我们 HeyGen 全力致力于HyperFrames，但我们无法单独做到这一点 - 这就是我们在 Apache 2.0 下开源它的原因，因此我们可以共同构建代理视频创建的基础。
+
+## 进一步阅读
+
+- [确定性渲染](/concepts/determinism) — 搜索驱动的帧捕获的工作原理
+- [GSAP 动画指南](/guides/gsap-animation) — 库时钟集成实践
+- [Frame Adapters](/concepts/frame-adapters) — 动画运行时的扩展点
+- [网站到视频](/guides/website-to-video) — HTML 优先的捕获到渲染管道

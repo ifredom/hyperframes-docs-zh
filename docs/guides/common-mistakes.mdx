@@ -1,0 +1,265 @@
+---
+title: 常见错误
+description: "破坏超框架组合的陷阱。"
+---
+
+这些是 linter 无法捕获的错误。对于自动检查，请运行 `npx hyperframes lint`（请参阅 [CLI](/packages/cli#lint)）。
+
+<Warning>
+  前两个错误——动画视频元素尺寸和控制脚本中的媒体播放——是造成构图损坏的最常见原因。如果您的视频看起来有问题，请先检查这些。
+</Warning>
+
+<AccordionGroup>
+  <Accordion title="动画视频元素尺寸">
+    **症状：** 视频帧停止更新，或浏览器性能严重下降。
+
+    **原因：** GSAP 直接在 `<video>` 元素上对 `width`、`height`、`top`、`left` 进行动画处理可能会导致浏览器停止渲染帧。
+
+    **之前（破损）：**
+
+    ```javascript index.html
+    // Animating the video element directly — causes frame rendering to stop
+    tl.to("#el-video", { width: 500, height: 280, top: 700, left: 1400 }, 26);
+    ```
+
+    **之后（固定）：**
+
+    ```html index.html
+    <!-- Wrap the video in a div and animate the wrapper -->
+    <div id="pip-wrapper" style="position: absolute; width: 1920px; height: 1080px;">
+      <video id="el-video" data-start="0" data-track-index="0"
+             src="./assets/video.mp4" style="width: 100%; height: 100%;"></video>
+    </div>
+    ```
+
+    ```javascript index.html
+    // Animate the wrapper — the video fills it at 100%
+    tl.to("#pip-wrapper", { width: 500, height: 280, top: 700, left: 1400 }, 26);
+    ```
+
+    使用非定时包装 `<div>` 来实现画中画等视觉效果。为包装器设置动画；让视频通过CSS填充它。
+  </Accordion>
+
+  <Accordion title="在脚本中控制媒体播放">
+    **症状：** 音频/视频播放不同步，或不应该播放。
+
+    **原因：** 在脚本中调用 `video.play()`、`video.pause()` 或设置 `audio.currentTime`。 [框架拥有所有媒体播放](/reference/html-schema#framework-managed-behavior)。
+
+    **之前（破损）：**
+
+    ```javascript index.html
+    // Conflicts with framework media sync
+    document.getElementById("el-video").play();
+    document.getElementById("el-audio").currentTime = 5;
+    ```
+
+    **之后（固定）：**
+
+    ```javascript index.html
+    // Don't control media playback at all. The framework handles it.
+    // Use GSAP for visual animations only:
+    tl.to("#el-video", { opacity: 1, duration: 0.5 }, 0);
+    ```
+
+    该框架读取 [`data-start`](/concepts/data-attributes#timing-attributes)、[`data-media-start`](/concepts/data-attributes#media-attributes) 和 [`data-volume`](/concepts/data-attributes#media-attributes) 来控制媒体播放的时间和方式。有关 HTML 原语和脚本之间的分离，请参阅[组合：两层](/concepts/compositions#two-layers-primitives-and-scripts)。
+  </Accordion>
+
+  <Accordion title="作文时长比视频短">
+    **症状：** 视频播放几秒钟然后停止。尽管视频长达几分钟，但时间线显示 8-10 秒。
+
+    **原因：** 合成持续时间等于 [GSAP 时间线持续时间](/guides/gsap-animation#timeline-duration-and-composition-duration)，而不是视频上的 `data-duration`。如果您的最后一个 GSAP 动画在 8 秒结束，则合成的长度为 8 秒 - 无论视频源有多长。
+
+    **之前（破损）：**
+
+    ```javascript index.html
+    // Timeline is only 7.8s long — video cuts off after 7.8 seconds
+    tl.to("#lower-third", { left: -640, duration: 0.6 }, 7.2);
+    ```
+
+    **之后（固定）：**
+
+    ```javascript index.html
+    tl.to("#lower-third", { left: -640, duration: 0.6 }, 7.2);
+
+    // Extend the timeline to 283 seconds to match the video length
+    tl.set({}, {}, 283);
+    ```
+
+    `tl.set({}, {}, TIME)` 在指定时间添加零持续时间补间，延长时间线而不影响任何元素。
+
+    <Tip>
+      快速检查：运行 `npx hyperframes compositions` 以查看每个组合的解析持续时间。如果比预期短，则您的时间表需要延长。
+    </Tip>
+  </Accordion>
+
+  <Accordion title="定时元素上缺少 class='clip'">
+    **症状：** 元素始终可见，忽略其 `data-start` 和 `data-duration` 计时。
+
+    **原因：** [`class="clip"`](/concepts/data-attributes#element-visibility) 属性告诉运行时管理元素的可见性生命周期。如果没有它，元素​​将始终被渲染。
+
+    **之前（破损）：**
+
+    ```html index.html
+    <!-- Missing class="clip" — this element is always visible -->
+    <h1 id="title" data-start="2" data-duration="5" data-track-index="0">
+      Hello World
+    </h1>
+    ```
+
+    **之后（固定）：**
+
+    ```html index.html
+    <!-- With class="clip", the runtime shows this only from 2s to 7s -->
+    <h1 id="title" class="clip" data-start="2" data-duration="5" data-track-index="0">
+      Hello World
+    </h1>
+    ```
+
+    <Note>
+      linter 捕获这个：`npx hyperframes lint` 将标记定时元素缺少 `class="clip"`。
+    </Note>
+  </Accordion>
+
+  <Accordion title="超大源图像">
+    **症状：** 在屏幕上显示图像的场景中预览卡顿。渲染速度比预期慢。
+
+    **原因：** 源图像的分辨率比画布高得多。 Chrome 在显示图像之前将图像解码为原始 RGBA 位图，位图大小为 `width × height × 4` 字节 - 与磁盘上的文件大小无关。 7000×5000 JPEG 的解码大小为 140MB，即使文件只有 2MB。
+
+    在 384×1080 区域中显示这样的图像会浪费内存，并迫使合成器每帧重新采样巨大的纹理。
+
+    **之前（臃肿）：**
+
+    ```html index.html
+    <!-- 7000x5000 source, ~140MB decoded -->
+    <img class="clip" data-start="0" data-duration="3"
+         src="./assets/hero-scene.jpg" />
+    ```
+
+    **之后（尺寸适合画布）：**
+
+    ```bash Terminal
+    # Resize a batch of images to fit within 3840x3840, preserving aspect ratio
+    mkdir -p assets/resized
+    mogrify -path assets/resized -resize 3840x3840\> assets/*.jpg
+    ```
+
+    ```html index.html
+    <!-- ~3840x2560 source, ~40MB decoded -->
+    <img class="clip" data-start="0" data-duration="3"
+         src="./assets/resized/hero-scene.jpg" />
+    ```
+
+    **经验法则：** 源图像最多为画布尺寸的 2 倍。对于 1920×1080 的构图，3840×2160 已经足够了。请参阅[性能：图像大小调整](/guides/performance#image-sizing)。
+  </Accordion>
+
+  <Accordion title="重型背景滤镜堆栈">
+    **症状：** 预览中特定场景的帧率下降至 5-10 fps。其他地方的构图都很好。
+
+    **原因：** `backdrop-filter: blur()` 在大型元素上，尤其是在高半径处堆叠。每个模糊层都会强制合成器对元素后面的像素进行采样，运行模糊内核，然后合成结果。堆叠层数会增加成本。
+
+    **之前（昂贵）：**
+
+    ```css
+    /* 8 layers per side = 16 blur passes every frame */
+    .pb-1 { backdrop-filter: blur(1px); }
+    .pb-2 { backdrop-filter: blur(2px); }
+    .pb-3 { backdrop-filter: blur(4px); }
+    .pb-4 { backdrop-filter: blur(8px); }
+    .pb-5 { backdrop-filter: blur(16px); }
+    .pb-6 { backdrop-filter: blur(32px); }
+    .pb-7 { backdrop-filter: blur(64px); }
+    .pb-8 { backdrop-filter: blur(128px); }
+    ```
+
+    **之后（3 个调整层）：**
+
+    ```css
+    /* Fewer passes with hand-picked radii — visually similar, much cheaper */
+    .pb-1 { backdrop-filter: blur(4px); }
+    .pb-2 { backdrop-filter: blur(16px); }
+    .pb-3 { backdrop-filter: blur(48px); }
+    ```
+
+    **指南：**
+
+    - 每个区域堆叠 `backdrop-filter` 层至 2-3 层
+    - 避免在大面积上使用超过 64 像素的半径 - 最大的半径在总成本中占主导地位
+    - 对于静态模糊效果，将其预渲染为 PNG 一次，并用常规 `<img>` 覆盖
+
+    请参阅 [性能：背景过滤器：blur()](/guides/performance#backdrop-filter-blur) 了解完整的详细信息。
+  </Accordion>
+
+  <Accordion title="预期 HDR 输出但得到 SDR">
+    **症状：** 预期是 HDR 渲染，但输出看起来与 SDR 或 `ffprobe` 报告 `color_transfer=bt709` 相同。
+
+    **原因：** 默认情况下，只有当源 `<video>` 或 `<img>` 用 BT.2020 / PQ / HLG 颜色元数据标记时，HyperFrames才会切换到 HDR 编码。未启用 HDR 的常见原因：
+
+    1. **所有来源均为 SDR。** 自动检测会将仅 SDR 的成分保留在 SDR 中。使用 `ffprobe` 验证：
+
+       ```bash Terminal
+       ffprobe -v error -show_streams source.mp4 | grep color_transfer
+       # Want: smpte2084 (PQ) or arib-std-b67 (HLG)
+       # SDR:  bt709, smpte170m, bt470bg, etc.
+       ```
+
+    2. **输出格式错误。** HDR 输出需要 MP4。 `--format mov` 和 `--format webm` 回退到 SDR — 当发生这种情况时，Hyperframes 会记录警告。
+
+    3. **SDR 是强制的。** 即使 HDR 源存在，`--sdr` 也会禁用 HDR。
+
+    如果您需要 HDR，无论源元数据如何，请使用 `--hdr` 强制使用。
+
+    `--docker` 的工作方式与本地渲染相同 - 自动检测、`--hdr` 和 `--sdr` 都转发到容器中并产生相同的输出决策（速度较慢，因为容器回退到软件 WebGL 进行 SDR DOM 捕获）。
+
+    请参阅 [HDR 渲染](/guides/hdr) 了解完整的源要求和验证步骤。
+  </Accordion>
+
+  <Accordion title="时间轴键与 data-composition-id 不匹配">
+    **症状：** 动画不播放。构图看起来是静态的。
+
+    **原因：** `window.__timelines` 中使用的密钥必须与组合根元素上的 [`data-composition-id`](/concepts/data-attributes#composition-attributes) 属性完全匹配。
+
+    **之前（破损）：**
+
+    ```javascript index.html
+    // Mismatch: HTML says "my-video", script registers "root"
+    // <div data-composition-id="my-video" ...>
+    window.__timelines["root"] = tl;
+    ```
+
+    **之后（固定）：**
+
+    ```javascript index.html
+    // Key matches the data-composition-id attribute
+    // <div data-composition-id="my-video" ...>
+    window.__timelines["my-video"] = tl;
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 调试清单
+
+当出现问题时，请按以下顺序检查：
+
+1. **运行 linter：** `npx hyperframes lint` — 捕获大多数结构问题
+2. **时间线已注册？** `window.__timelines["<id>"]` 设置了吗？密钥是否匹配 [`data-composition-id`](/concepts/data-attributes#composition-attributes)？
+3. **仅 GSAP 动画？** 仅动画视觉属性（不透明度、变换、颜色） - 请参阅 [GSAP 动画](/guides/gsap-animation#key-rules)
+4. **时间线足够长？** 在末尾添加 `tl.set({}, {}, DURATION)` — 请参阅[时间线持续时间](/guides/gsap-animation#timeline-duration-and-composition-duration)
+5. **控制台错误？** 打开浏览器控制台 — 运行时错误显示为 `[Browser:ERROR]`
+6. **仍然卡住？** 请参阅[故障排除](/guides/troubleshooting) 了解环境和渲染问题
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="故障排除" icon="wrench" href="/guides/troubleshooting">
+    修复环境和渲染问题
+  </Card>
+  <Card title="GSAP动画" icon="wand-magic-sparkles" href="/guides/gsap-animation">
+    查看动画规则和模式
+  </Card>
+  <Card title="HTML 架构参考" icon="code" href="/reference/html-schema">
+    完整属性参考和清单
+  </Card>
+  <Card title="数据属性" icon="database" href="/concepts/data-attributes">
+    时间、媒体和构图属性
+  </Card>
+</CardGroup>

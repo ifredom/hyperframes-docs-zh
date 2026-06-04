@@ -1,0 +1,50 @@
+---
+title: "iOS 26 液态玻璃主屏幕"
+description: "具有普通 iOS 26 主屏幕的 3D iPhone、液体玻璃应用程序图标、着色器壁纸、底座以及从状态区域掉落到 GLTF 设备模型上的液体玻璃通知。"
+---
+
+# iOS 26 液态玻璃主屏幕
+
+具有普通 iOS 26 主屏幕的 3D iPhone、液体玻璃应用程序图标、着色器壁纸、底座以及从状态区域掉落到 GLTF 设备模型上的液体玻璃通知。
+
+`liquid-glass-html-in-canvas` `webgpu` `3d` `iphone` `ios26` `notifications` `gltf` `html-in-canvas`
+
+<Warning>
+**需要 Chrome 标志。** 启用 `chrome://flags/#canvas-draw-element` 进行实时预览。通过 CLI 渲染会自动启用该标志。 [了解更多](/guides/html-in-canvas)。
+</Warning>
+
+<video className="w-full aspect-video rounded-xl object-cover bg-zinc-100 dark:bg-zinc-800" src="https://static.heygen.ai/hyperframes-oss/docs/images/catalog/blocks/ios26-liquid-glass.mp4" poster="https://static.heygen.ai/hyperframes-oss/docs/images/catalog/blocks/ios26-liquid-glass.png" autoPlay muted loop playsInline />
+
+## 安装
+
+<CodeGroup>
+
+```bash Terminal
+npx hyperframes add ios26-liquid-glass
+```
+
+</CodeGroup>
+
+## 细节
+
+| 财产 | 价值 |
+| --- | --- |
+| 类型 | 堵塞 |
+| 方面 | 1920×1080 |
+| 期间 | 15秒 |
+
+## 文件
+
+| 文件 | 目标 | 类型 |
+| --- | --- | --- |
+| `ios26-liquid-glass.html` | `compositions/ios26-liquid-glass.html` | 超框架:组合 |
+| `models/iphone.glb` | `models/iphone.glb` | 超框架：资产 |
+| `lib/liquid-glass.iife.js` | `lib/liquid-glass.iife.js` | 超框架：资产 |
+
+## 用法
+
+安装后，将该块添加到您的主机组合中：
+
+```html
+<div data-composition-id="ios26-liquid-glass" data-composition-src="compositions/ios26-liquid-glass.html" data-start="0" data-duration="15" data-track-index="1" data-width="1920" data-height="1080"></div>
+```

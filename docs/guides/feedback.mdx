@@ -1,0 +1,219 @@
+---
+title: 反馈收集
+description: "HyperFrames 如何收集反馈、收集哪些数据以及如何选择退出。"
+---
+
+HyperFrames 偶尔会询问渲染进行得如何或 Studio 会话的感受如何。本页解释了我们这样做的原因、何时出现提示、收集哪些数据以及如何禁用它们。
+
+## 我们为什么问
+
+我们使用匿名满意度分数来了解该工具是否实际上运行良好，而不仅仅是它运行时是否没有错误。需要 10 分钟并生成损坏文件的渲染在日志中算作成功，但在实践中算作失败。反馈提示是我们针对该差距的唯一信号。
+
+任何帐户、电子邮件或身份都不会与回复相关联。每次安装都会在安装时生成一个随机 UUID；这是唯一的标识符。
+
+## 它是如何运作的
+
+### CLI——渲染后提示
+
+`hyperframes render`成功后，可能会出现一个简短的提示：
+
+```
+  How was this render? [1=poor 5=great, enter to skip]
+  Any details? (enter to skip)
+```
+
+**当它显示时：**
+
+- 首次成功渲染
+- 之后每 15 次渲染一次（第 16、31、46...）
+- 每个进程最多一次 - 在同一会话中重新渲染不会触发第二个提示
+- 在安静模式 (`--quiet`)、非 TTY shell 和 CI 环境下自动抑制
+
+该提示有 **10 秒自动超时** - 如果您没有响应，它会默默消失，并且 CLI 会正常继续。
+
+渲染间隔是可配置的：
+
+```bash
+# Show prompt every 5 renders instead of 15 (useful for testing)
+HYPERFRAMES_FEEDBACK_INTERVAL=5 hyperframes render --output out.mp4
+```
+
+### Studio — 会话反馈栏
+
+一个 32px 的细条会定期滑入预览区域的底部：
+
+- 从来没有在第一节课上——只从第 10 节开始
+- 然后每 10 次（第 10、20、30...）
+- 页面加载后3秒内滑动以避免闪烁
+- 如果忽略，20 秒后自动关闭
+- 任何交互（取消或提交）后，会话计数器都会重置 - 10 个以上会话后出现下一个提示
+
+会话间隔可在构建时配置：
+
+```
+VITE_HYPERFRAMES_FEEDBACK_INTERVAL=3
+```
+
+无效值（非整数、零、负数）将回退到默认值。
+
+**注意：** 禁用 CLI 遥测 (`hyperframes telemetry disable`) 不会抑制 Studio 栏 — Studio 反馈是单独门控的。提交的数据仍然通过相同的匿名 PostHog 管道发送，因此适用相同的隐私保证。
+
+### `hyperframes feedback` 命令
+
+您可以随时手动提交反馈：
+
+```bash
+# Quick rating
+hyperframes feedback --rating 5
+
+# Rating with details
+hyperframes feedback --rating 3 --comment "render succeeded but GSAP timeline didn't animate text overlay"
+```
+
+| 旗帜 | 描述 |
+|------|-------------|
+| `--rating` | 满意度得分，1–5（必填） |
+| `--comment` | 可选的自由文本详细信息 |
+
+此命令自动收集医生摘要、刷新遥测数据并退出。它出现在 `hyperframes --help` 的 **设置** 组下。
+
+## 代理运行时
+
+当检测到 AI 代理时，HyperFrames **跳过交互式阅读提示**并打印结构化提示：
+
+```
+  [hyperframes] Agent feedback: hyperframes feedback --rating <1-5> --comment "..."
+```
+
+然后，代理可以使用上面的 `hyperframes feedback` 命令提交反馈。
+
+相同的节奏门适用：提示仅出现在第一次渲染上，然后每 15 次出现一次。
+
+**检测到的试剂及其标记：**
+
+| 代理人 | 环境标记 |
+|-------|---------------------|
+| 克劳德·科德 | 存在 `CLAUDECODE`，或存在 `CLAUDE_CODE_ENTRYPOINT` |
+| 法典 | 存在 `CODEX_THREAD_ID`、`CODEX_CI` 或 `CODEX_SANDBOX_NETWORK_DISABLED` |
+| 光标 | `TERM_PROGRAM` 等于 `cursor` |
+| GitHub Copilot 代理 | `GITHUB_ACTIONS` 等于 `true` 且（`COPILOT_AGENT_ID` 存在或 `RUNNER_NAME` 等于 `Copilot`） |
+| 雷普利特 | 存在 `REPL_ID` 或 `REPLIT_USER` |
+| 赫尔墨斯 | `HERMES_QUIET` 存在 |
+| 开爪 | 存在 `OPENCLAW_STATE_DIR` 或 `OPENCLAW_CONFIG_PATH` |
+| 圆周率 | `PI_CODING_AGENT` 存在 |
+
+仅检查这些变量是否存在（或在某些情况下检查值）——碰巧共享前缀的 API 密钥和机密永远不会被读取。
+
+## 收集什么
+
+### CLI 反馈
+
+| 场地 | 价值 |
+|-------|-------|
+| `$survey_id` | `render_satisfaction` |
+| `$survey_response` | 评级 (1–5) |
+| `$survey_response_2` | 自由文本评论（仅在提供时） |
+| `render_duration_ms` | 渲染花费的时间（以毫秒为单位） |
+| `doctor_summary` | 系统上下文（见下文） |
+
+`doctor_summary` 是一个带有环境上下文的紧凑字符串 - 自动包含在内，因此您在报告问题时无需运行 `hyperframes doctor` ：
+
+```
+os=darwin/arm64 node=v22.11.0 cpu=10cores mem=32GB ffmpeg=yes
+```
+
+当检测到这些环境时，它还可能包括 `wsl` 或沙箱运行时标志。
+
+### 工作室反馈
+
+| 场地 | 价值 |
+|-------|-------|
+| `$survey_id` | `studio_experience` |
+| `$survey_response` | 评级 (1–5) |
+| `$survey_response_2` | 自由文本评论（仅在提供时） |
+| `source` | `studio` |
+| `doctor_summary` | 浏览器上下文（平台、屏幕、CPU 内核、设备内存、网络类型） |
+
+## 不收集的内容
+
+- 文件路径或项目名称
+- 合成内容、HTML 或视频文件
+- 环境变量值
+- 个人身份信息
+- IP地址或精确位置
+
+反馈是匿名的。每个安装都有一个随机 UUID (`anonymousId`) — 没有帐户、登录名或电子邮件关联。
+
+## 配置文件
+
+CLI 将反馈状态保留在 `~/.hyperframes/config.json` 中：
+
+```json
+{
+  "telemetryEnabled": true,
+  "anonymousId": "a1b2c3d4-...",
+  "telemetryNoticeShown": true,
+  "commandCount": 47,
+  "renderSuccessCount": 14,
+  "lastFeedbackPromptAt": 1
+}
+```
+
+| 场地 | 描述 |
+|-------|-------------|
+| `renderSuccessCount` | 所有会话的成功渲染总数 |
+| `lastFeedbackPromptAt` | 最后一次出现提示时的 `renderSuccessCount` 值 — 用于计算 15 次渲染是否已通过 |
+
+Studio 将等效状态存储在 `hyperframes-studio:` 前缀下的 `localStorage` 中。
+
+## 选择退出
+
+### CLI — 完全禁用遥测
+
+禁用遥测会抑制 CLI 反馈提示和所有其他 CLI 使用情况跟踪：
+
+```bash
+# Via CLI command (persisted to ~/.hyperframes/config.json)
+hyperframes telemetry disable
+
+# Or via environment variable (per-session)
+HYPERFRAMES_NO_TELEMETRY=1 hyperframes render --output out.mp4
+
+# Or via DO_NOT_TRACK (respects the global standard)
+DO_NOT_TRACK=1 hyperframes render --output out.mp4
+```
+
+一旦禁用，`hyperframes feedback` 命令将打印 `Telemetry is disabled. Feedback not sent.` 并退出而不发送任何内容。
+
+### CLI — 抑制输出而不禁用遥测
+
+```bash
+# Quiet mode: renders without any post-render output (including the feedback prompt)
+hyperframes render --quiet --output out.mp4
+```
+
+### 持续集成环境
+
+当设置 `CI` 环境变量时，CLI 反馈提示会自动抑制（GitHub Actions、CircleCI 等默认设置此值）。
+
+### 工作室
+
+Studio 反馈栏不受 CLI 遥测设置的影响。要在构建时禁用它，请设置：
+
+```
+VITE_HYPERFRAMES_NO_FEEDBACK=1
+```
+
+当设置为 `"1"` 时，该栏永远不会显示 — `shouldShowFeedback()` 无条件返回 `false`，无论会话计数或 `localStorage` 状态如何。
+
+会话间隔仍然可以独立配置：
+
+```
+VITE_HYPERFRAMES_FEEDBACK_INTERVAL=20
+```
+
+## 有关的
+
+- [遥测](/packages/cli#telemetry) — 完整的遥测设置以及收集哪些使用数据
+- [`hyperframes feedback`](/packages/cli#feedback) — CLI 命令参考
+- [故障排除](/guides/troubleshooting) — 如果提示意外阻塞了您的管道

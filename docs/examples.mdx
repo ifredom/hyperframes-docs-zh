@@ -1,0 +1,274 @@
+---
+title: 示例
+description: "常见视频模式​​的内置示例。将鼠标悬停以预览动画。"
+---
+
+Hyperframes 包含入门示例，可帮助您快速搭建构图。每个示例都为您提供了一个具有正确的[组合结构](/concepts/compositions)、[数据属性](/concepts/data-attributes) 和已连接的[GSAP 时间线](/guides/gsap-animation) 的工作项目。
+
+<Note>
+  正在寻找成品视频和制作项目？从[展示](/showcase)开始。
+</Note>
+
+```bash Terminal
+npx hyperframes init my-video --example <name>
+```
+
+## 景观模板
+
+<div className="not-prose grid grid-cols-2 gap-4 my-6">
+  <div className="tpl-card relative rounded-xl overflow-hidden bg-zinc-900 transition-transform hover:-translate-y-0.5 hover:shadow-xl">
+    <video className="w-full aspect-video object-cover block" src="https://static.heygen.ai/hyperframes-oss/docs/images/templates/warm-grain.mp4" poster="https://static.heygen.ai/hyperframes-oss/docs/images/templates/warm-grain.png" muted loop playsInline preload="metadata" />
+    <div className="absolute bottom-0 left-0 right-0 pt-6 pb-2 px-3" style={{background: "linear-gradient(transparent, rgba(0,0,0,0.7))"}}><strong className="text-sm font-semibold text-white block">温暖的谷物</strong><span className="text-xs text-zinc-300">品牌与生活方式</span></div>
+  </div>
+  <div className="tpl-card relative rounded-xl overflow-hidden bg-zinc-900 transition-transform hover:-translate-y-0.5 hover:shadow-xl">
+    <video className="w-full aspect-video object-cover block" src="https://static.heygen.ai/hyperframes-oss/docs/images/templates/play-mode.mp4" poster="https://static.heygen.ai/hyperframes-oss/docs/images/templates/play-mode.png" muted loop playsInline preload="metadata" />
+    <div className="absolute bottom-0 left-0 right-0 pt-6 pb-2 px-3" style={{background: "linear-gradient(transparent, rgba(0,0,0,0.75))"}}><strong className="text-sm font-semibold text-white block">播放模式</strong><span className="text-xs text-zinc-300">社交媒体</span></div>
+  </div>
+  <div className="tpl-card relative rounded-xl overflow-hidden bg-zinc-900 transition-transform hover:-translate-y-0.5 hover:shadow-xl">
+    <video className="w-full aspect-video object-cover block" src="https://static.heygen.ai/hyperframes-oss/docs/images/templates/swiss-grid.mp4" poster="https://static.heygen.ai/hyperframes-oss/docs/images/templates/swiss-grid.png" muted loop playsInline preload="metadata" />
+    <div className="absolute bottom-0 left-0 right-0 pt-6 pb-2 px-3" style={{background: "linear-gradient(transparent, rgba(0,0,0,0.75))"}}><strong className="text-sm font-semibold text-white block">瑞士电网</strong><span className="text-xs text-zinc-300">企业与技术</span></div>
+  </div>
+  <div className="tpl-card relative rounded-xl overflow-hidden bg-zinc-900 transition-transform hover:-translate-y-0.5 hover:shadow-xl">
+    <video className="w-full aspect-video object-cover block" src="https://static.heygen.ai/hyperframes-oss/docs/images/templates/kinetic-type.mp4" poster="https://static.heygen.ai/hyperframes-oss/docs/images/templates/kinetic-type.png" muted loop playsInline preload="metadata" />
+    <div className="absolute bottom-0 left-0 right-0 pt-6 pb-2 px-3" style={{background: "linear-gradient(transparent, rgba(0,0,0,0.75))"}}><strong className="text-sm font-semibold text-white block">动力型</strong><span className="text-xs text-zinc-300">促销和标题卡</span></div>
+  </div>
+  <div className="tpl-card relative rounded-xl overflow-hidden bg-zinc-900 transition-transform hover:-translate-y-0.5 hover:shadow-xl">
+    <video className="w-full aspect-video object-cover block" src="https://static.heygen.ai/hyperframes-oss/docs/images/templates/decision-tree.mp4" poster="https://static.heygen.ai/hyperframes-oss/docs/images/templates/decision-tree.png" muted loop playsInline preload="metadata" />
+    <div className="absolute bottom-0 left-0 right-0 pt-6 pb-2 px-3" style={{background: "linear-gradient(transparent, rgba(0,0,0,0.75))"}}><strong className="text-sm font-semibold text-white block">决策树</strong><span className="text-xs text-zinc-300">解释者和教程</span></div>
+  </div>
+  <div className="tpl-card relative rounded-xl overflow-hidden bg-zinc-900 transition-transform hover:-translate-y-0.5 hover:shadow-xl">
+    <video className="w-full aspect-video object-cover block" src="https://static.heygen.ai/hyperframes-oss/docs/images/templates/product-promo.mp4" poster="https://static.heygen.ai/hyperframes-oss/docs/images/templates/product-promo.png" muted loop playsInline preload="metadata" />
+    <div className="absolute bottom-0 left-0 right-0 pt-6 pb-2 px-3" style={{background: "linear-gradient(transparent, rgba(0,0,0,0.75))"}}><strong className="text-sm font-semibold text-white block">产品促销</strong><span className="text-xs text-zinc-300">产品展示</span></div>
+  </div>
+  <div className="tpl-card relative rounded-xl overflow-hidden bg-zinc-900 transition-transform hover:-translate-y-0.5 hover:shadow-xl">
+    <video className="w-full aspect-video object-cover block" src="https://static.heygen.ai/hyperframes-oss/docs/images/templates/nyt-graph.mp4" poster="https://static.heygen.ai/hyperframes-oss/docs/images/templates/nyt-graph.png" muted loop playsInline preload="metadata" />
+    <div className="absolute bottom-0 left-0 right-0 pt-6 pb-2 px-3" style={{background: "linear-gradient(transparent, rgba(0,0,0,0.75))"}}><strong className="text-sm font-semibold text-white block">纽约时报图</strong><span className="text-xs text-zinc-300">数据故事</span></div>
+  </div>
+</div>
+
+## 肖像模板
+
+<div className="not-prose grid grid-cols-3 gap-3 my-6">
+  <div className="tpl-card relative rounded-xl overflow-hidden bg-zinc-900 transition-transform hover:-translate-y-0.5 hover:shadow-xl">
+    <video className="w-full object-cover block" style={{aspectRatio: "9/16"}} src="https://static.heygen.ai/hyperframes-oss/docs/images/templates/vignelli.mp4" poster="https://static.heygen.ai/hyperframes-oss/docs/images/templates/vignelli.png" muted loop playsInline preload="metadata" />
+    <div className="absolute bottom-0 left-0 right-0 pt-6 pb-2 px-3" style={{background: "linear-gradient(transparent, rgba(0,0,0,0.75))"}}><strong className="text-sm font-semibold text-white block">葡萄园</strong><span className="text-xs text-zinc-300">标题和公告</span></div>
+  </div>
+</div>
+
+<Tip>
+  寻找最小起点？使用**空白**——它会给你一个空的构图，只有脚手架，没有视觉设计。
+
+  ```bash Terminal
+  npx hyperframes init my-video --example blank
+  ```
+</Tip>
+
+## 选择一个例子
+
+| 例子 | 风格 | 格式 | 最适合 |
+|----------|-------|--------|----------|
+| `warm-grain` | 有机、有质感 | 景观 | 生活方式、品牌、社论 |
+| `play-mode` | 精力充沛、有弹性 | 景观 | 社交媒体、产品发布 |
+| `swiss-grid` | 干净、结构化 | 景观 | 企业、数据、技术 |
+| `kinetic-type` | 戏剧型 | 景观 | 宣传片、简介、标题卡 |
+| `decision-tree` | 图解式 | 景观 | 讲解员、教程 |
+| `product-promo` | 多场景 | 景观 | 产品展示、演示 |
+| `nyt-graph` | 编辑数据 | 景观 | 数据故事、报告 |
+| `vignelli` | 粗体、印刷 | 肖像 | 头条新闻、公告 |
+| `blank` | 最少的脚手架 | — | 完全控制，代理生成 |
+
+## 示例详细信息
+
+<Tabs>
+  <Tab title="暖粒">
+    ### 暖粒
+
+    奶油色美感与颗粒纹理叠加。
+
+    **它产生什么：** 具有温暖的颜色分级、纹理纹理和平滑过渡的组合。包括介绍子构图和字幕支持。
+
+    ```
+    my-video/
+    ├── meta.json
+    ├── index.html
+    ├── compositions/
+    │   ├── intro.html
+    │   ├── graphics.html
+    │   └── captions.html
+    └── assets/
+    ```
+  </Tab>
+  <Tab title="播放模式">
+    ### 播放模式
+
+    俏皮的弹性动画以及大胆、充满活力的动作。
+
+    ```
+    my-video/
+    ├── meta.json
+    ├── index.html
+    ├── compositions/
+    │   ├── intro.html
+    │   ├── stats.html
+    │   └── captions.html
+    └── assets/
+    ```
+  </Tab>
+  <Tab title="瑞士电网">
+    ### 瑞士电网
+
+    结构化网格布局的灵感来自瑞士/国际印刷风格。
+
+    ```
+    my-video/
+    ├── meta.json
+    ├── index.html
+    ├── compositions/
+    │   ├── intro.html
+    │   ├── graphics.html
+    │   └── captions.html
+    └── assets/
+    ```
+  </Tab>
+  <Tab title="葡萄园">
+    ### 葡萄园
+
+    带有红色强调的大胆排版（1080×1920 纵向）。
+
+    ```
+    my-video/
+    ├── meta.json
+    ├── index.html
+    ├── compositions/
+    │   ├── overlays.html
+    │   └── captions.html
+    └── assets/
+    ```
+  </Tab>
+  <Tab title="动力型">
+    ### 动力型
+
+    大胆的动态排版促销与戏剧性的文本动画。
+
+    ```
+    my-video/
+    ├── meta.json
+    ├── index.html
+    └── compositions/
+        └── main-graphics.html
+    ```
+  </Tab>
+  <Tab title="决策树">
+    ### 决策树
+
+    具有分支路径和渐进显示的动画流程图。
+
+    ```
+    my-video/
+    ├── meta.json
+    ├── index.html
+    └── compositions/
+        └── decision_tree.html
+    ```
+  </Tab>
+  <Tab title="产品促销">
+    ### 产品促销
+
+    使用 SVG 资源进行多场景产品展示。
+
+    ```
+    my-video/
+    ├── meta.json
+    ├── index.html
+    ├── compositions/
+    │   ├── scene1-logo-intro.html
+    │   ├── scene2-4-canvas.html
+    │   └── scene5-logo-outro.html
+    └── assets/
+        ├── figma-cursors.svg
+        ├── figma-logo-pieces.svg
+        └── figma-logo-pills.svg
+    ```
+  </Tab>
+  <Tab title="nyt-图">
+    ### nyt-图
+
+    印刷编辑风格的动画数据图表。
+
+    ```
+    my-video/
+    ├── meta.json
+    ├── index.html
+    └── compositions/
+        └── nyt-chart.html
+    ```
+  </Tab>
+  <Tab title="空白的">
+    ### 空白的
+
+    只有脚手架的空构图。
+
+    ```
+    my-video/
+    ├── meta.json
+    ├── index.html
+    └── compositions/
+        └── captions.html
+    ```
+  </Tab>
+</Tabs>
+
+## 传递源视频
+
+```bash Terminal
+npx hyperframes init my-video --example warm-grain --video ./my-clip.mp4
+```
+
+CLI 将探测视频的持续时间、分辨率和编解码器。如果视频使用不兼容的编解码器，如果 FFmpeg 可用，它将自动转码为 H.264 MP4。
+
+## 自定义示例
+
+任何带有 `index.html` 的目录都可以作为示例。您的自定义示例需要：
+
+1. 具有 [`data-composition-id`](/concepts/data-attributes#composition-attributes) 根元素的 `index.html`
+2. 在 `window.__timelines` 中注册的 [GSAP 时间线](/guides/gsap-animation)
+3. 同一目录或子目录中的任何资产
+
+```html index.html
+<div id="root" data-composition-id="my-example"
+     data-start="0" data-width="1920" data-height="1080">
+
+  <!-- Your elements here -->
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    // Add your animations...
+    window.__timelines = window.__timelines || {};
+    window.__timelines["my-example"] = tl;
+  </script>
+</div>
+```
+
+创建自定义示例后，使用 [linter](/packages/cli#lint) 验证它：
+
+```bash Terminal
+npx hyperframes lint
+```
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="快速入门" icon="rocket" href="/quickstart">
+    创建、预览和渲染您的第一个视频
+  </Card>
+  <Card title="发布视频" icon="github" href="/launch-videos">
+    HeyGen 发布的真实制作项目 — 开源供您阅读和混音。
+  </Card>
+  <Card title="GSAP动画" icon="wand-magic-sparkles" href="/guides/gsap-animation">
+    将动画添加到您的示例中
+  </Card>
+  <Card title="作文" icon="layer-group" href="/concepts/compositions">
+    了解组合数据模型
+  </Card>
+</CardGroup>

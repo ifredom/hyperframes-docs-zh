@@ -1,0 +1,1248 @@
+---
+title: 命令行界面
+description: "从命令行创建、预览和渲染 HTML 视频合成。"
+---
+
+`hyperframes` CLI 是使用HyperFrames的主要方式。它可以从您的终端处理项目创建、实时预览、渲染、linting 和诊断。
+
+```bash
+npm install -g hyperframes
+# or use directly with npx
+npx hyperframes <command>
+```
+
+## 何时使用
+
+**当您想要执行以下操作时使用 CLI：**
+- 捕获用于视频制作的网站 (`capture`)
+- 从示例创建一个新的组合项目 (`init`)
+- 通过实时热重载预览合成 (`preview`)
+- 在本地或 Docker 中将合成渲染为 MP4 (`render`)
+- 针对结构问题的 Lint 组合 (`lint`)
+- 检查渲染的视觉布局是否有文本溢出和剪切容器 (`inspect`)
+- 将关键帧捕获为 PNG 屏幕截图 (`snapshot`)
+- 检查您的环境是否缺少依赖项 (`doctor`)
+
+**如果您愿意，请使用不同的包：**
+- 从 Node.js 代码以编程方式渲染 - 使用 [生产者](/packages/producer)
+- 构建自定义帧捕获管道 - 使用 [engine](/packages/engine)
+- 在您自己的网络应用程序中嵌入合成编辑器 - 使用 [studio](/packages/studio)
+- 在代码中解析或生成合成 HTML — 使用 [core](/packages/core)
+
+<Tip>
+  CLI 是所有 Hyperframes 用户推荐的起点。它包装了制作人、引擎和工作室包，因此您无需单独安装它们。
+</Tip>
+
+## 默认情况下对代理友好
+
+CLI **默认情况下对代理友好**：命令支持显式标志和可解析输出，因此自动化可以可靠地运行。
+
+- 输入可以通过标志传递（例如，`--example`、`--video`、`--output`）
+- 缺少必需的标志会快速失败，并提供清晰的错误和使用示例
+- 输出是适合解析的纯文本
+
+交互性是特定于命令的。例如，`init` 默认使用 TTY 上的提示；通过 `--non-interactive` 强制非交互模式。
+
+`--human-friendly` 也是特定于命令的（例如，`catalog`）。它不是每个命令上的全局标志。
+
+<Tabs>
+  <Tab title="代理模式（默认）">
+    ```bash
+    # Fully non-interactive — all inputs from flags
+    npx hyperframes init my-video --example blank --video video.mp4
+    npx hyperframes render --output output.mp4 --fps 30 --quality standard
+    npx hyperframes upgrade --check --json
+    ```
+  </Tab>
+  <Tab title="人性化模式">
+    ```bash
+    # Command-specific interactive flow
+    npx hyperframes init my-video
+
+    # Interactive picker supported by catalog
+    npx hyperframes catalog --human-friendly
+    ```
+  </Tab>
+</Tabs>
+
+### JSON 输出和 `_meta` 信封
+
+所有支持 `--json` 的命令都使用包含版本检查信息的 `_meta` 字段包装其输出：
+
+```json
+{
+  "name": "my-video",
+  "duration": 10.5,
+  "_meta": {
+    "version": "0.1.4",
+    "latestVersion": "0.1.5",
+    "updateAvailable": true
+  }
+}
+```
+
+这允许代理从任何命令的输出中检测过时的版本，而无需运行单独的升级检查。版本数据来自24小时缓存——`--json`输出期间没有网络请求。
+
+### 被动更新通知
+
+CLI 在后台检查 npm 是否有较新版本（缓存 24 小时）。如果有可用更新，命令完成后 stderr 上会出现一条通知：
+
+```
+  Update available: 0.1.4 → 0.1.5
+  Run: npx hyperframes@latest
+```
+
+在 CI 环境、非 TTY shell 以及设置 `HYPERFRAMES_NO_UPDATE_CHECK=1` 时，这种情况会被抑制。
+
+## 入门
+
+<Steps>
+  <Step title="创建一个项目">
+    从一个例子中搭建一个新的组合：
+    ```bash
+    npx hyperframes init --example warm-grain
+    ```
+    系统将提示您输入项目名称，或将其作为参数传递：
+    ```bash
+    npx hyperframes init my-video --example warm-grain
+    ```
+    有关所有可用示例，请参阅[示例](/examples)。
+  </Step>
+  <Step title="在浏览器中预览">
+    通过实时热重载启动开发服务器：
+    ```bash
+    cd my-video
+    npx hyperframes preview
+    ```
+    Hyperframes Studio 将在您的浏览器中打开。编辑 `index.html` ，预览会立即更新。
+  </Step>
+  <Step title="检查你的作品">
+    渲染前检查结构问题：
+    ```bash
+    npx hyperframes lint
+    ```
+    ```
+    ◆  Linting my-project/index.html
+
+    ◇  0 errors, 0 warnings
+    ```
+  </Step>
+  <Step title="渲染为 MP4">
+    制作最终视频：
+    ```bash
+    npx hyperframes render --output output.mp4
+    ```
+    渲染特定的合成而不是 `index.html`：
+    ```bash
+    npx hyperframes render -c compositions/intro.html -o intro.mp4
+    ```
+    对于确定性输出，请添加 `--docker`：
+    ```bash
+    npx hyperframes render --docker --output output.mp4
+    ```
+  </Step>
+</Steps>
+
+## 命令
+
+<Tabs>
+  <Tab title="创造">
+    ### `init`
+
+    从示例创建一个新的组合项目：
+
+    ```bash
+    # Agent mode (default) — --example is required
+    npx hyperframes init my-video --example blank --video video.mp4
+
+    # Include Tailwind CSS browser-runtime support
+    npx hyperframes init my-video --example blank --tailwind
+
+    # Human mode — interactive prompts on TTY by default
+    npx hyperframes init my-video
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--example, -e` | 脚手架示例（默认模式下需要，在 `--human-friendly` 中交互） |
+    | `--resolution` | 画布预设：`landscape` (1920×1080)、`portrait` (1080×1920)、`landscape-4k` (3840×2160)、`portrait-4k` (2160×3840)、`square` (1080×1080)、 `square-4k` (2160×2160)。别名：`1080p`、`4k`、`uhd`、`1080p-square`、`square-1080p`、`4k-square`。默认：保留模板尺寸。 |
+    | `--video, -V` | 视频文件的路径（MP4、WebM、MOV） |
+    | `--audio, -a` | 音频文件的路径（MP3、WAV、M4A） |
+    | `--tailwind` | 将 Tailwind CSS 浏览器运行时支持添加到脚手架 HTML |
+    | `--skip-skills` | 跳过AI编码技能安装 |
+    | `--skip-transcribe` | 跳过自动耳语转录 |
+    | `--model` | 用于转录的 Whisper 模型（例如 `small.en`、`medium.en`、`large-v3`） |
+    | `--language` | 用于转录的语言代码（例如 `en`、`es`、`ja`）。过滤非目标语音。 |
+
+    | 例子 | 描述 |
+    |----------|-------------|
+    | `blank` | 空构图——只有脚手架 |
+    | `warm-grain` | 具有颗粒纹理的奶油色美感 |
+    | `play-mode` | 俏皮的弹性动画 |
+    | `swiss-grid` | 结构化网格布局 |
+    | `vignelli` | 带有红色口音的大胆排版 |
+
+    在非交互模式下，需要 `--example` — 如果缺少，则会出现 CLI 错误并带有使用示例。在交互模式下（TTY 上的默认模式），您可以交互地选择示例。通过标志传递 `--non-interactive` 以要求 `--example`。当提供 `--video` 或 `--audio` 时，CLI 自动使用 Whisper 转录音频并将字幕修补到合成中（使用 `--skip-transcribe` 禁用）。
+
+    `--tailwind` 将固定的 Tailwind v4 浏览器运行时注入支架式 HTML 中，并公开 `window.__tailwindReady` 承诺，在捕获帧 0 之前渲染等待。在编辑这些项目时使用 `/tailwind` 技能，以便代理遵循 v4 CSS 优先模式，而不是 v3 `tailwind.config.js` 和 `@tailwind` 指令模式。浏览器运行时仍然适用于脚手架项目和快速迭代；对于完全离线或锁定的生产渲染，请将 Tailwind 编译为 CSS 并直接包含样式表。
+
+    搭建完成后，CLI 会安装 Claude Code、Gemini CLI 和 Codex CLI 的 AI 编码技能（使用 `--skip-skills` 禁用）。请参阅 [`skills`](#skills) 命令。
+
+    有关完整详细信息，请参阅[示例](/examples)。
+
+    ### `add`
+
+    将注册表中的**块**或**组件**安装到现有项目中。示例（完整项目）由 [`init`](#init) 搭建；块和组件是您添加到已有组合中的较小单元。
+
+    ```bash
+    # Add a block (sub-composition scene)
+    npx hyperframes add claude-code-window
+
+    # Add a component (effect / snippet)
+    npx hyperframes add shader-wipe
+
+    # Target a different project dir
+    npx hyperframes add shader-wipe --dir ./my-video
+
+    # Headless / CI (skip clipboard; also: --json for a machine-readable result)
+    npx hyperframes add shader-wipe --no-clipboard --json
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `<name>`（位置） | 注册表项名称（例如 `claude-code-window`、`shader-wipe`） |
+    | `--dir` | 项目目录（默认为当前工作目录） |
+    | `--no-clipboard` | 跳过将包含片段复制到剪贴板 |
+    | `--json` | 将机器可读的摘要（书面文件+片段）打印到标准输出 |
+
+    `add` 在项目根目录读取 [`hyperframes.json`](#hyperframes-json) 以了解要从哪个注册表中提取以及在何处放置文件。如果该文件丢失，但目录看起来像 Hyperframes 项目（具有 `index.html`），则第一次运行 `add` 时会写入默认的 `hyperframes.json`。
+
+    块或组件的输出是一组文件加上**粘贴片段** - 要包含在主机组合中的 `<iframe>` 标记（对于块）或片段路径（对于组件）。默认情况下，代码片段会复制到剪贴板；为 CI 或无头环境添加 `--no-clipboard`。
+
+    尝试使用示例名称（例如 `hyperframes add warm-grain`）使用 `add` 会发出一个明确的错误，指向 `init --example`。
+
+    ### `catalog`
+
+    浏览注册表 - 列出可用的块和组件以及可选的过滤器：
+
+    ```bash
+    # List everything (default: table output)
+    npx hyperframes catalog
+
+    # Filter by type or tag
+    npx hyperframes catalog --type block
+    npx hyperframes catalog --type block --tag social
+
+    # Machine-readable JSON
+    npx hyperframes catalog --json
+
+    # Interactive picker — select to install
+    npx hyperframes catalog --human-friendly
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--type` | 按 `block` 或 `component` 过滤 |
+    | `--tag` | 按标签过滤（例如 `social`、`transition`、`text`） |
+    | `--json` | 将匹配项打印为 JSON（非交互式） |
+    | `--human-friendly` | 交互式选择器 — 选择一个项目进行安装 |
+
+    默认输出是一个列出名称、类型、描述和标签的表——专为代理进行解析而设计。 `--json` 产生结构化输出。 `--human-friendly` 打开一个交互式选择器，该选择器在选择时运行 `add`。
+
+    ### `compositions`
+
+    列出当前项目中的所有作品：
+
+    ```bash
+    npx hyperframes compositions
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--json` | 输出为 JSON |
+
+    显示每个合成的 ID、持续时间、分辨率和元素计数。
+
+    ### `transcribe`
+
+    将音频/视频转录为字级时间戳，或导入现有转录：
+
+    ```bash
+    # Transcribe audio/video with local whisper.cpp
+    npx hyperframes transcribe audio.mp3
+    npx hyperframes transcribe video.mp4 --model medium.en --language en
+
+    # Import existing transcripts from other tools
+    npx hyperframes transcribe subtitles.srt
+    npx hyperframes transcribe captions.vtt
+    npx hyperframes transcribe openai-response.json
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--dir, -d` | 项目目录（默认：当前目录） |
+    | `--model, -m` | 耳语模型（默认：`small.en`）。选项：`tiny.en`、`base.en`、`small.en`、`medium.en`、`large-v3` |
+    | `--language, -l` | 语言代码（例如 `en`、`es`、`ja`）。过滤掉非目标语言语音。 |
+    | `--json` | 输出结果为 JSON |
+
+    该命令自动检测输入类型。音频/视频文件是用whisper.cpp转录的。转录文件（`.json`、`.srt`、`.vtt`）已标准化并导入。
+
+    **支持的成绩单格式：**
+
+    | 格式 | 来源 |
+    |--------|--------|
+    | 耳语.cpp JSON | `hyperframes init --video`、`hyperframes transcribe` |
+    | OpenAI Whisper API JSON | `openai.audio.transcriptions.create()` 带有单词时间戳 |
+    | SRT 字幕 | 视频编辑器、YouTube、字幕工具 |
+    | 视频字幕 | 网络播放器、YouTube、转录服务 |
+
+    所有格式均标准化为标准 `[{text, start, end}]` 字数组并保存为 `transcript.json`。如果项目有标题 HTML 文件，它们会自动使用脚本数据进行修补。
+
+    <Tip>
+      对于音乐或嘈杂的音频，请使用 `--model medium.en` 以获得更高的准确性。为了获得生产内容的最佳效果，请通过 OpenAI 或 Groq Whisper API 进行转录并导入 JSON。
+    </Tip>
+
+    ### `tts`
+
+    使用本地 AI 模型 (Kokoro-82M) 从文本生成语音音频。无需 API 密钥 — 完全在设备上运行。
+
+    ```bash
+    # Generate speech from text
+    npx hyperframes tts "Welcome to HyperFrames"
+
+    # Choose a voice
+    npx hyperframes tts "Hello world" --voice am_adam
+
+    # Save to a specific file
+    npx hyperframes tts "Intro" --voice bf_emma --output narration.wav
+
+    # Adjust speech speed
+    npx hyperframes tts "Slow and clear" --speed 0.8
+
+    # Generate Spanish speech (lang auto-detected from the `e` voice prefix)
+    npx hyperframes tts "La reunión empieza a las nueve" --voice ef_dora --output es.wav
+
+    # Override the phonemizer (read English text with a French voice)
+    npx hyperframes tts "Bonjour le monde" --voice af_heart --lang fr-fr
+
+    # Read text from a file
+    npx hyperframes tts script.txt
+
+    # List available voices
+    npx hyperframes tts --list
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--output, -o` | 输出文件路径（默认：当前目录中的`speech.wav`） |
+    | `--voice, -v` | 语音 ID（运行 `--list` 查看选项） |
+    | `--speed, -s` | 语音速度倍增器（默认值：1.0） |
+    | `--lang, -l` | Phonemizer 语言环境（`en-us`、`en-gb`、`es`、`fr-fr`、`hi`、`it`、`pt-br`、`ja`、`zh`）。省略时，从语音 ID 前缀推断。 |
+    | `--list` | 列出可用的声音并退出 |
+    | `--json` | 输出结果为 JSON |
+
+    <Tip>
+      语音 ID 在其第一个字母中对音素语言进行编码（`a`=美式、`b`=英式、`e`=西班牙语、`f`=法语、`h`=印地语、`i`=意大利语、`j`=日语、 `p`=巴西葡萄牙语，`z`=普通话）。仅当您想要覆盖它时才需要 `--lang` — 例如，为英语文本提供法语音素以实现风格化口音。
+    </Tip>
+
+    <Tip>
+      将 `tts` 与 `transcribe` 结合起来，在单个工作流程中为字幕生成旁白和字级时间戳：使用 `tts` 生成音频，然后使用 `transcribe` 转录输出以获得字级计时。
+    </Tip>
+
+    ### `remove-background`
+
+    使用本地 AI 模型从视频或图像中删除背景。输出是透明媒体，您可以将其放入任何合成的 `<video>` 或 `<img>` 元素中 — 无需绿屏。
+
+    ```bash
+    # Default: VP9-with-alpha WebM (HTML5-native, ~1 MB / 4s @ 1080p)
+    npx hyperframes remove-background avatar.mp4 -o transparent.webm
+
+    # ProRes 4444 .mov for editing round-trip
+    npx hyperframes remove-background avatar.mp4 -o transparent.mov
+
+    # Single image → transparent PNG
+    npx hyperframes remove-background portrait.jpg -o cutout.png
+
+    # Layer separation: cutout AND inverse-alpha background plate in one pass
+    npx hyperframes remove-background avatar.mp4 \
+      -o subject.webm --background-output plate.webm
+
+    # Force CPU on a machine that has CoreML or CUDA
+    npx hyperframes remove-background avatar.mp4 -o transparent.webm --device cpu
+
+    # Inspect detected providers without rendering
+    npx hyperframes remove-background --info
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--output, -o` | 输出路径。从扩展推断的格式：`.webm`（默认）、`.mov`、`.png` |
+    | `--background-output, -b` | 可选的第二个输出：反阿尔法背景板（主体区域透明，周围环境不透明）。相同的 RGB 源，互补掩模。必须是 `.webm` 或 `.mov`。挖孔，而不是修补——在下面复合一些东西来填充孔。 |
+    | `--device` | 执行提供者：`auto`（默认）、`cpu`、`coreml`、`cuda` |
+    | `--quality` | WebM 编码器预设：`fast`（crf 30，最小）、`balanced`（crf 18，默认）、`best`（crf 12，接近无损）。更高的质量使剪切图的 RGB 更接近源 mp4，这在将剪切图叠加到其自己的源上以实现文本背后主题效果时非常重要。适用于 `--output` 和 `--background-output`。忽略 `.mov` / `.png`。 |
+    | `--info` | 打印检测到的执行提供者并退出（无渲染） |
+    | `--json` | 输出结果为 JSON |
+
+    该模型是 `u2net_human_seg` (MIT, ~168 MB ONNX)。权重在第一次运行时下载到 `~/.cache/hyperframes/background-removal/models/` 并随后重复使用。峰值推理 RAM 约为 1.5 GB。
+
+    `--device auto` 选择 Apple Silicon 上的 CoreML，CUDA（如果可用），否则选择 CPU。 CLI 捆绑了 `onnxruntime-node` 的 CPU 版本；对于 CUDA，设置 `HYPERFRAMES_CUDA=1` 并提供支持 GPU 的 `onnxruntime-node` 构建。
+
+    输出格式：
+
+    | 格式 | 使用案例 | 尺寸（4s @ 1080p） |
+    |--------|----------|-------------------|
+    | `.webm`（VP9 阿尔法） | 放入 `<video>` 进行 HTML5 原生透明播放 | 〜1MB |
+    | `.mov` (ProRes 4444) | 在 Premiere / Resolve / DaVinci 中编辑往返 | 〜50MB |
+    | `.png` | 单张图像剪切 | 各不相同 |
+
+    <Tip>
+      当 WebM 使用 `alpha_mode=1` 元数据标记编码为 `yuva420p` 时，Chrome 中的 `<video>` 元素仅考虑 alpha 平面。 CLI 会自动设置两者 — 如果您自己重新编码输出，请保留这些标志。
+    </Tip>
+
+    请参阅[删除背景指南](/guides/remove-background) 了解完整的工作流程 — 在合成中使用透明视频、每个平台的性能、`u2net_human_seg` 的限制以及此模型不合适时的免费替代工具。
+
+    ### `capture`
+
+    捕获网站 - 提取屏幕截图、设计标记、字体、资产和动画以进行视频制作：
+
+    ```bash
+    npx hyperframes capture https://stripe.com
+    npx hyperframes capture https://linear.app -o captures/linear
+    npx hyperframes capture https://example.com --json
+    ```
+
+    ```
+    ◇  Captured Stripe | Financial Infrastructure → captures/stripe-com
+
+      Screenshots: 12
+      Assets: 45
+      Sections: 15
+      Fonts: sohne-var
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `-o, --output` | 输出目录（默认：`captures/<hostname>`） |
+    | `--timeout` | 页面加载超时（以毫秒为单位）（默认值：120000） |
+    | `--skip-assets` | 跳过下载图像和字体 |
+    | `--max-screenshots` | 最大屏幕截图数量（默认：24） |
+    | `--json` | 输出结构化 JSON 以供编程使用 |
+
+    捕获命令提取 AI 代理理解网站视觉标识所需的所有内容：每个滚动深度的视口屏幕截图、调色板（像素采样 + DOM 计算）、字体文件、具有语义名称的图像、SVG、Lottie 动画、视频预览、WebGL 着色器、可见文本和页面结构。
+
+    输出是一个独立的目录，其中包含 `CLAUDE.md` 文件，任何 AI 代理都可以读取该文件来了解捕获的站点。由 `/website-to-hyperframes` 技能用作视频制作流程的第 1 步。
+
+    在 `.env` 文件中设置 `GEMINI_API_KEY`，通过 Gemini 视觉进行 AI 驱动的图像描述（~0.001 美元/图像）。有关详细信息，请参阅[网站到视频](/guides/website-to-video#enriching-captures-with-gemini-vision) 指南。
+
+  </Tab>
+  <Tab title="预览">
+    ### `preview`
+
+    通过热重载启动实时预览服务器：
+
+    ```bash
+    npx hyperframes preview [dir]
+    npx hyperframes preview --port 4567
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--port` | 运行预览服务器的端口（默认值：3002） |
+
+    在 Hyperframes Studio 中打开您的合成并进行实时预览。对 `index.html` 和任何引用的子组合的编辑都会自动反映。预览使用与生产渲染相同的HyperFrames运行时，因此所见即所得。
+
+    <Note>
+      视觉输出与渲染完全匹配。播放*性能*不会：在浏览器中实时预览播放，因此根据您的硬件，大量绘画的合成（大图像、堆叠的 `backdrop-filter` 层、许多阴影元素）可能会出现卡顿。不管怎样，渲染的 mp4 总是准确的 — 渲染一次捕获一帧，因此每帧成本显示为较长的渲染持续时间，而不是丢失的帧。有关详细信息，请参阅[性能](/guides/performance)。
+    </Note>
+
+    预览服务器以三种自动检测模式运行：
+
+    1. **嵌入式模式**（默认为 `npx`）— 运行独立服务器，并在 CLI 中捆绑工作室。零额外依赖。
+    2. **本地工作室模式** — 如果 `@hyperframes/studio` 安装在项目的 `node_modules` 中，则会生成具有完整 HMR 的 Vite 以加快迭代速度。
+    3. **Monorepo 模式** — 如果从 Hyperframes 源存储库运行，则直接生成工作室开发服务器。
+
+    ### `publish`
+
+    上传项目并获取稳定的 `hyperframes.dev` URL：
+
+    ```bash
+    npx hyperframes publish [dir]
+    npx hyperframes publish --yes
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--yes` | 跳过确认提示 |
+
+    `publish` 压缩当前项目，将其上传到 HyperFrames 发布后端，并打印该存储项目的稳定 `hyperframes.dev` URL。
+
+    打印的 URL 已包含声明令牌，因此在 `hyperframes.dev` 上打开它可以让目标用户声明上传的项目并继续在 Web 应用程序中进行编辑。
+
+    此流程不会使本地预览服务器保持活动状态，也不会打开隧道。发布的 URL 解析为 HeyGen 存储的持久项目，因此在 CLI 进程退出后它仍然可以工作。
+
+    ### `lint`
+
+    检查作文中的常见问题：
+
+    ```bash
+    npx hyperframes lint [dir]
+    npx hyperframes lint [dir] --verbose   # include info-level findings
+    npx hyperframes lint [dir] --json      # machine-readable JSON output
+    ```
+    ```
+    ◆  Linting my-project/index.html
+
+      ✗ missing_gsap_script: Composition uses GSAP but no GSAP script is loaded.
+      ⚠ unmuted-video [clip-1]: Video should have the 'muted' attribute for reliable autoplay.
+
+    ◇  1 error(s), 1 warning(s)
+    ```
+
+    默认情况下仅打印**错误**和**警告**。隐藏信息级别的发现（例如，外部脚本依赖性通知），以保持代理和 CI 的输出干净。使用 `--verbose` 包含它们。
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--json` | 将结果输出为 JSON（包括 `errorCount`、`warningCount`、`infoCount` 和 `findings` 数组） |
+    | `--verbose` | 在输出中包含信息级结果（默认隐藏） |
+
+    **严重级别：**
+    - **错误** (`✗`) — 必须在渲染之前修复（例如，缺少适配器库、无效属性）
+    - **警告** (`⚠`) — 可能导致意外行为的问题
+    - **信息** (`ℹ`) — 信息通知，仅与 `--verbose` 一起显示
+
+    linter 检测缺失的属性、缺失的适配器库（GSAP、Lottie、Three.js）、结构问题等。有关每条规则的详细信息，请参阅[常见错误](/guides/common-mistakes)。
+
+    ### `inspect`
+
+    检查整个合成时间轴上渲染的视觉布局：
+
+    ```bash
+    npx hyperframes inspect [dir]
+    npx hyperframes inspect [dir] --json
+    npx hyperframes inspect [dir] --samples 15
+    npx hyperframes inspect [dir] --at 1.5,4,7.25
+    ```
+
+    ```
+    ◆  Inspecting layout for my-project (9 timeline samples)
+
+      ✗ text_box_overflow t=3.25s #headline inside .bubble overflowed right 18px — "Quarterly plan"
+        Fix: Text is 418px x 42px inside 400px x 120px and overflows by up to 18px; widen the container to at least ~418px, or allow wrapping with max-width/fitTextFontSize.
+
+    ◇  1 error(s), 0 warning(s), 0 info(s)
+    ```
+
+    `inspect` 捆绑项目，在本地提供服务，打开无头 Chrome，搜索组合，并报告超出预期框的文本或元素。它专为代理工作流程而设计：每个发现都包括架构版本、时间戳或折叠时间戳范围、选择器、最近的容器选择器、测量的边界框、溢出边和修复提示。
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--json` | 使用 `schemaVersion`、`samples`、`issues`、边界框和摘要计数输出代理可读的结果 |
+    | `--samples` | 整个合成持续时间的中点样本数（默认值：9） |
+    | `--at` | 用于显式英雄帧检查的逗号分隔时间戳（以秒为单位） |
+    | `--tolerance` | 在报告问题之前允许像素溢出（默认值：2） |
+    | `--timeout` | 等待运行时初始化的毫秒数（默认值：5000） |
+    | `--collapse-static` | 折叠样本中重复的静态问题（默认值：true） |
+    | `--max-issues` | 静态崩溃后打印或返回的最大结果数（默认值：80） |
+    | `--strict` | 出现警告和错误时退出非零 |
+
+    当有意溢出时（例如计划的画布外入口），请在元素或祖先上使用 `data-layout-allow-overflow` 。将 `data-layout-ignore` 用于不应审核的装饰元素。
+
+    `layout` 仍然可用作同一目视检查通过的兼容性别名：
+
+    ```bash
+    npx hyperframes layout [dir] --json
+    ```
+
+    ### `snapshot`
+
+    从合成中捕获关键帧作为 PNG 屏幕截图 — 无需完整渲染即可验证视觉输出：
+
+    ```bash
+    npx hyperframes snapshot my-project --at 2.9,10.4,18.7
+    npx hyperframes snapshot my-project --frames 10
+    ```
+
+    ```
+    ◆  Capturing 3 frames at [2.9s, 10.4s, 18.7s] from my-project
+
+    ◇  3 snapshots saved to snapshots/
+       snapshots/frame-00-at-2.9s.png
+       snapshots/frame-01-at-10.4s.png
+       snapshots/frame-02-at-18.7s.png
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--frames` | 要捕获的均匀间隔帧的数量（默认值：5） |
+    | `--at` | 以秒为单位的逗号分隔时间戳（例如 `3.0,10.5,18.0`） |
+    | `--timeout` | Ms 等待运行时初始化（默认值：5000） |
+
+    快照命令捆绑项目，在本地提供服务，启动无头 Chrome，查找每个时间戳，并捕获 1920×1080 PNG。对于[网站到视频](/guides/website-to-video) 工作流程的构建步骤期间的视觉验证非常有用。
+  </Tab>
+  <Tab title="建造">
+    ### `render`
+
+    将合成渲染为 MP4 或 WebM：
+
+    ```bash
+    # Local mode (fast iteration)
+    npx hyperframes render --output output.mp4
+
+    # Docker mode (deterministic output)
+    npx hyperframes render --docker --output output.mp4
+
+    # WebM with transparency (for overlays, captions, lower thirds)
+    npx hyperframes render --format webm --output overlay.webm
+
+    # With options
+    npx hyperframes render --output output.mp4 --fps 60 --quality high
+
+    # Opt out of local browser GPU capture
+    npx hyperframes render --no-browser-gpu --output cpu-browser.mp4
+
+    # Add hardware FFmpeg encoding
+    npx hyperframes render --gpu --output gpu.mp4
+    ```
+
+    | 旗帜 | 价值观 | 默认 | 描述 |
+    |------|--------|---------|-------------|
+    | `--output` | 小路 | `renders/<name>.mp4` | 输出文件路径 |
+    | `--format` | mp4、webm、mov、png 序列 | mp4 | 输出格式（具有透明度的 WebM/MOV 渲染；png-sequence 写入 RGBA PNG 的目录） |
+    | `--fps` | 24, 30, 60 | 30 | 每秒帧数 |
+    | `--quality` | 草稿、标准、高 | 标准 | 编码质量预设（驱动 CRF/比特率） |
+    | `--crf` | 0-51 | — | 覆盖编码器 CRF（较低 = 较高质量）。与 `--video-bitrate` 互斥 |
+    | `--video-bitrate` | 例如`10M`、`5000k` | — | 目标视频比特率。与 `--crf` 互斥 |
+    | `--resolution` | 横向、纵向、横向 4k、纵向 4k、方形、方形 4k（别名：`1080p`、`4k`、`uhd`、`1080p-square`、`square-1080p`、`4k-square`） | — | 输出分辨率预设。通过 Chrome `deviceScaleFactor` 对较小的合成进行超级采样，以便屏幕截图达到所要求的尺寸。长宽比必须与构图相匹配；比例必须是整数倍。不支持 `--hdr`。请参阅[4K 渲染](/guides/4k-rendering) |
+    | `--hdr` | — | 离开 | 即使未检测到 HDR 源，也强制输出 HDR。仅限 MP4。请参阅[HDR 渲染](/guides/hdr) |
+    | `--sdr` | — | 离开 | 即使检测到 HDR 源，也强制输出 SDR |
+    | `--workers` | 1-8 | 4 | 并行渲染工作者 |
+    | `--gpu` | — | 离开 | GPU 编码（NVENC、VideoToolbox、AMF、VAAPI、QSV） |
+    | `--browser-gpu` / `--no-browser-gpu` | — | 在本地打开，在 Docker 中关闭 | 使用或选择不使用主机 GPU 加速进行本地 Chrome/WebGL 捕获 |
+    | `--docker` | — | 离开 | 使用 Docker 进行[确定性渲染](/concepts/determinism) |
+    | `--quiet` | — | 离开 | 抑制详细输出 |
+    | `--variables` | JSON 对象 | — | 变量覆盖合并到 `data-composition-variables` 默认值上。通过 `window.__hyperframes.getVariables()` 读取 |
+    | `--variables-file` | 小路 | — | 具有变量覆盖的 JSON 文件的路径（替代 `--variables`） |
+    | `--strict-variables` | — | 离开 | 如果任何 `--variables` 键未声明或与组合的 `data-composition-variables` 类型错误，则渲染失败。如果没有此标志，不匹配将打印为警告并且渲染将继续。 |
+
+    CRF 和目标比特率默认为 `--quality` 预设。使用 `--crf` 或 `--video-bitrate` 进行细粒度覆盖； `RenderConfig.crf` 和 `RenderConfig.videoBitrate` 以编程方式接受相同的覆盖。
+
+    #### 参数化渲染
+
+    通过在合成根上声明变量并在渲染时覆盖它们，以不同的内容渲染相同的合成：
+
+    ```html index.html
+    <html
+      data-composition-id="root"
+      data-composition-variables='[
+        {"id":"title","label":"Title","type":"string","default":"Hello"},
+        {"id":"theme","label":"Theme","type":"enum","options":[
+          {"value":"light","label":"Light"},
+          {"value":"dark","label":"Dark"}
+        ],"default":"light"}
+      ]'>
+      <body>
+        <h1 id="hero" class="clip" data-start="0" data-duration="3"></h1>
+        <script>
+          const vars = window.__hyperframes.getVariables();
+          document.getElementById("hero").textContent = vars.title;
+          document.body.dataset.theme = vars.theme;
+        </script>
+      </body>
+    </html>
+    ```
+
+    ```bash
+    # Render with declared defaults (preview also uses the defaults)
+    npx hyperframes render --output default.mp4
+
+    # Override at render time — missing keys fall through to declared defaults
+    npx hyperframes render --variables '{"title":"Q4 Report","theme":"dark"}' --output q4.mp4
+
+    # Pass values from a JSON file
+    npx hyperframes render --variables-file ./vars.json --output out.mp4
+    ```
+
+    `getVariables()` 返回声明的默认值和任何 `--variables` 覆盖的合并结果，因此相同的合成在开发预览和生产渲染中运行不变。
+
+    #### 具有透明度的 WebM
+
+    使用 `--format webm` 渲染具有透明背景的合成。这会在 WebM 容器中生成带有 Alpha 通道的 VP9 视频 - 可叠加视频的标准格式。
+
+    ```bash
+    # Render a caption overlay with transparent background
+    npx hyperframes render --format webm --output captions.webm
+
+    # Overlay on another video with FFmpeg
+    ffmpeg -c:v libvpx-vp9 -i captions.webm -i background.mp4 \
+      -filter_complex "[1:v][0:v]overlay=0:0" -y composited.mp4
+    ```
+
+    <Tip>
+      为了实现透明度，您的合成的 HTML 应在根元素上使用 `background: transparent`。 WebM 渲染使用 PNG 帧捕获（而不是 JPEG）来保留 Alpha 通道。
+    </Tip>
+
+    有关所有选项和模式，请参阅[渲染](/guides/rendering)。
+
+    ### `benchmark`
+
+    找到适合您的系统的最佳渲染设置：
+
+    ```bash
+    npx hyperframes benchmark [dir]
+    ```
+
+    | 旗帜 | 价值观 | 默认 | 描述 |
+    |------|--------|---------|-------------|
+    | `--runs` | 1-20 | 3 | 每个配置的运行次数 |
+    | `--json` | — | 离开 | 将结果输出为 JSON |
+
+    运行多个渲染配置（不同的 fps、质量和工作人员数量）并比较每个渲染配置的时间和文件大小。
+  </Tab>
+  <Tab title="公用事业">
+    ### `doctor`
+
+    检查您的环境是否有所需的依赖项：
+
+    ```bash
+    npx hyperframes doctor
+    ```
+    ```
+    hyperframes doctor
+
+      ✓ Version          0.1.4 (latest)
+      ✓ Node.js          v22.x (linux x64)
+      ✓ FFmpeg            7.x
+      ✓ FFprobe           7.x
+      ✓ Chrome            (system or cached)
+      ✓ Docker            24.x
+      ✓ Docker running    Running
+
+      ◇  All checks passed
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--json` | 输出为 JSON（包括 `_meta` 信封） |
+
+    验证 CLI 版本、Node.js、FFmpeg、FFprobe、Chrome 和 Docker 可用性。如果有更新的 CLI 版本可用，版本行会显示升级提示。
+
+    **CI 门控。** `hyperframes doctor --json` 在成功执行时始终退出 0 — 如果生成有效输出，则命令成功。环境是否健康由有效负载的 `ok` 字段携带，因此新的 CLI 版本（将 `Version.ok` 翻转为 `false`）永远不会破坏您的管道。通过 `jq` 传送到负载上的门：
+
+    ```bash
+    hyperframes doctor --json | jq -e '.ok' > /dev/null || handle_failure
+    ```
+
+    `detail` 和 `hint` 中的路径以 JSON 模式进行编辑 - 用户的主目录被文字 `$HOME` 替换，因此输出可以安全地粘贴到错误报告和代理上下文中。
+
+    ### `info`
+
+    显示项目元数据：
+
+    ```bash
+    npx hyperframes info [dir]
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--json` | 输出为 JSON |
+
+    显示项目名称、分辨率、持续时间、按类型划分的元素计数、轨道计数和项目总大小。
+
+    ### `upgrade`
+
+    检查更新并显示升级说明：
+
+    ```bash
+    npx hyperframes upgrade
+    npx hyperframes upgrade --check         # check and exit (no prompt)
+    npx hyperframes upgrade --check --json  # machine-readable for agents
+    npx hyperframes upgrade --yes           # show upgrade commands without prompting
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--check` | 检查更新并退出（无提示，代理友好） |
+    | `--json` | 输出为 JSON（包括 `_meta` 信封） |
+    | `--yes, -y` | 显示升级命令而不提示 |
+
+    将您安装的版本与 npm 上的最新版本进行比较。使用 `--check --json`，返回：
+
+    ```json
+    {
+      "current": "0.1.4",
+      "latest": "0.1.5",
+      "updateAvailable": true,
+      "_meta": { "version": "0.1.4", "latestVersion": "0.1.5", "updateAvailable": true }
+    }
+    ```
+
+    ### `browser`
+
+    管理用于渲染的 Chrome 浏览器：
+
+    ```bash
+    # Find or download Chrome for rendering
+    npx hyperframes browser ensure
+
+    # Print the browser executable path (for scripting)
+    npx hyperframes browser path
+
+    # Remove cached Chrome download
+    npx hyperframes browser clear
+    ```
+
+    `path` 子命令仅输出路径，在脚本中有用：`$(npx hyperframes browser path)`。
+
+    ### `docs`
+
+    在终端中查看内联文档：
+
+    ```bash
+    npx hyperframes docs [topic]
+    ```
+
+    可用主题：`data-attributes`、`examples`、`rendering`、`gsap`、`troubleshooting`、`compositions`。在没有主题的情况下运行以查看完整列表。
+
+    ### `feedback`
+
+    提交有关您体验的匿名满意度反馈：
+
+    ```bash
+    # Quick rating (1 = poor, 5 = great)
+    npx hyperframes feedback --rating 5
+
+    # Rating with optional details
+    npx hyperframes feedback --rating 3 --comment "render succeeded but GSAP timeline didn't animate"
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--rating` | 满意度得分，1–5（必填） |
+    | `--comment` | 可选的自由文本详细信息 |
+
+    渲染后 AI 代理也可以使用此命令 - 请参阅 [反馈集合](/guides/feedback#agent-runtimes) 了解代理检测和自动渲染后提示的工作原理。
+
+    遥测禁用时无操作 - 打印 `Telemetry is disabled. Feedback not sent.` 并干净退出。
+
+    ### `telemetry`
+
+    管理匿名使用遥测：
+
+    ```bash
+    npx hyperframes telemetry enable
+    npx hyperframes telemetry disable
+    npx hyperframes telemetry status
+    ```
+
+    遥测收集命令名称、渲染性能、示例选择和系统信息，包括粗略的环境指纹（操作系统、内核字符串、CPU/内存形状、沙箱运行时，例如 gVisor 或 Docker，以及检测到时驱动 CLI 的编码代理的*名称*，例如 `claude_code` / `codex` / `cursor`）。代理名称源自众所周知的环境变量的存在；它们的值永远不会被读取。遥测不会收集文件路径、项目名称、视频内容、环境变量值或个人身份信息。使用 `HYPERFRAMES_NO_TELEMETRY=1` 或上面的命令禁用。
+
+    请参阅[反馈收集](/guides/feedback)，了解定期渲染后提示和 Studio 反馈栏的工作原理、它们收集哪些数据以及如何选择退出。
+
+    ### `skills`
+
+    为AI编码工具安装HyperFrames技能，包括第一方运行时适配器技能：
+
+    ```bash
+    # Install to all default targets (Claude Code, Gemini CLI, Codex CLI)
+    npx hyperframes skills
+
+    # Install to specific tools
+    npx hyperframes skills --claude
+    npx hyperframes skills --cursor
+    npx hyperframes skills --claude --gemini
+    ```
+
+    | 旗帜 | 描述 |
+    |------|-------------|
+    | `--claude` | 安装到克劳德代码 (`~/.claude/skills/`) |
+    | `--gemini` | 安装到 Gemini CLI (`~/.gemini/skills/`) |
+    | `--codex` | 安装到 Codex CLI (`~/.codex/skills/`) |
+    | `--cursor` | 安装到光标（当前项目中的 `.cursor/skills/`） |
+
+    技能取自 GitHub，包括组合创作、Tailwind v4 浏览器运行时指南、GSAP 动画模式、Anime.js、CSS 动画、Lottie、Three.js 和 WAAPI 适配器模式、注册表块/组件连接以及其他特定领域的知识。 `init` 命令还提供在搭建项目后自动安装技能的功能。
+
+    #### 故障排除：`fatal: active post-checkout hook found during git clone`
+
+    如果您全局安装了 Git LFS (`git lfs install`)，Git 2.45+ 会拒绝在任何 `git clone` 期间运行 LFS 签出后挂钩 — 包括上游 `skills` CLI 在幕后执行的克隆。错误看起来像：
+
+    ```
+    ■  Failed to clone repository
+    fatal: active `post-checkout` hook found during `git clone`
+    └  Installation failed
+    ```
+
+    **使用 `hyperframes skills` 已经很好了** - 从 v0.4.5 开始，CLI 在子环境上设置 `GIT_CLONE_PROTECTION_ACTIVE=0`，这是 Git 为这种情况提供的选择旋钮。你不需要做任何事情。
+
+    **如果您直接运行 `npx skills add heygen-com/hyperframes`**（绕过 HyperFrames CLI），请自行设置环境变量：
+
+    ```bash
+    GIT_CLONE_PROTECTION_ACTIVE=0 npx skills add heygen-com/hyperframes
+    ```
+
+    这在 [GH #316](https://github.com/heygen-com/hyperframes/issues/316) 中进行跟踪。 `skills` CLI 本身中的上游修复是正确的长期答案；在此之前，环境变量是正确的解决方法。
+  </Tab>
+</Tabs>
+
+## HyperFrames验证
+
+登录 HeyGen 并管理凭据。凭证存储在
+`~/.heygen/credentials`（模式 `0600`）并与 ** 共享
+`heygen` CLI** — 使用其中一个登录，另一个接收会话。
+
+解决顺序（第一场比赛获胜）：
+
+1. `HEYGEN_API_KEY` 环境变量
+2. `HYPERFRAMES_API_KEY` 环境变量（HyperFrames别名）
+3. `~/.heygen/credentials`
+
+### 子命令
+
+#### `auth login --api-key`
+
+保存 HeyGen API 密钥。密钥根据 `GET /v3/users/me` 进行验证
+在命令报告成功之前；被拒绝的密钥不会留在磁盘上。
+
+```bash
+# Interactive hidden-input prompt
+hyperframes auth login --api-key
+
+# Pipe a key from stdin (CI-friendly)
+echo "$HEYGEN_API_KEY" | hyperframes auth login --api-key
+```
+
+#### `auth status`
+
+显示活动凭证的来源、类型和经过验证的身份
+（帐户+账单快照）。未配置任何内容时以非零值退出
+或者 API 拒绝凭据，因此脚本可以检查登录状态。
+
+```bash
+hyperframes auth status
+hyperframes auth status --json   # machine-readable
+```
+
+#### `auth logout`
+
+删除存储的凭据。在 TTY 上提示确认。
+
+```bash
+hyperframes auth logout
+hyperframes auth logout --keep-api-key   # clear only an OAuth session
+hyperframes auth logout --yes            # skip the confirmation prompt
+```
+
+### 环境变量
+
+| 多变的 | 描述 |
+|----------|-------------|
+| `HEYGEN_API_KEY` | 覆盖存储的凭据。 |
+| `HYPERFRAMES_API_KEY` | `HEYGEN_API_KEY` 的别名。 |
+| `HEYGEN_API_URL` | API 基本 URL（默认 `https://api.heygen.com`）。 |
+| `HEYGEN_CONFIG_DIR` | 凭证目录（默认 `~/.heygen`）。 |
+
+## HyperFrames云
+
+在 HeyGen 的托管云上渲染 HyperFrames 合成 — 无需本地 Chrome、无需本地 ffmpeg、无需管理 AWS。使用 `hyperframes auth login` 登录一次，相同的凭据驱动每个 `cloud` 子命令。
+
+```bash
+hyperframes auth login                          # one-time
+hyperframes cloud render ./my-video             # zip + upload + poll + download
+hyperframes cloud render ./my-video --no-wait   # submit and exit with the render_id
+hyperframes cloud list                          # browse recent renders
+```
+
+### 子命令
+
+#### `cloud render [<projectDir>]`
+
+端到端渲染：压缩项目（不包括 `.git`、`node_modules`、`dist`、`.next`、`coverage`、点文件），通过 `POST /v3/assets` 上传，提交 `POST /v3/hyperframes/renders`，轮询 `GET /v3/hyperframes/renders/{id}`，直到渲染完成或失败，并将生成的视频流式传输到磁盘。
+
+渲染参数在重叠处镜像本地 `hyperframes render` UX：
+
+| 旗帜 | 默认 | 意义 |
+| --- | --- | --- |
+| `--fps` | `30` | 整数 1-240。 |
+| `--quality` | `standard` | `draft`、`standard` 或 `high`。 |
+| `--format` | `mp4` | `mp4`、`webm` 或 `mov`。 |
+| `--resolution` | 构图默认 | `landscape`、`portrait`、`landscape-4k`、`portrait-4k`、`square`、`square-4k`。 |
+| `--composition` / `-c` | `index.html` | 在 zip 中输入 HTML 文件。 |
+| `--variables` | — | 内联 JSON 对象覆盖 `data-composition-variables`。 |
+| `--variables-file` | — | JSON 文件的路径（替代 `--variables`）。 |
+| `--strict-variables` | 离开 | 当变量未声明或类型错误时失败。 |
+| `--title` | — | 自由文本标签与详细回复相呼应。 |
+| `--output` / `-o` | `renders/<render_id>.<ext>` | 下载视频的本地目的地。 |
+
+生命周期/控制标志：
+
+| 旗帜 | 意义 |
+| --- | --- |
+| `--no-wait` | 立即提交并退出；将 `render_id` 打印到标准输出。 |
+| `--callback-url` | 渲染终止时触发 HTTPS webhook（使用 `--no-wait` 组合）。 |
+| `--callback-id` | Webhook 负载中回显的不透明跟踪 ID。 |
+| `--asset-id` | 跳过压缩+上传；提交已上传的作文。与项目目录和 `--url` 互斥。 |
+| `--url` | 提交公共 HTTPS zip URL。与 `--asset-id` 相同的互斥。 |
+| `--poll-interval` | 轮询节奏（以秒为单位）（默认 `10`）。 |
+| `--max-wait` | 最大轮询持续时间（以分钟为单位）（默认 `60`）。 |
+| `--idempotency-key` | 用于安全重试的可选 `Idempotency-Key`（来自 `[A-Za-z0-9_:.-]` 的 1-255 个字符）。 |
+| `--json` | 发出机器可读的 JSON，而不是人类友好的进度。 |
+
+```bash
+# Default flow — render the current directory.
+hyperframes cloud render
+
+# Pick a composition + output path.
+hyperframes cloud render . \
+  --composition compositions/intro.html \
+  --output ./renders/intro.mp4
+
+# Higher quality at 60fps.
+hyperframes cloud render --quality high --fps 60
+
+# Fire-and-forget with a webhook (no local polling).
+hyperframes cloud render --callback-url https://example.com/hf-hook --no-wait
+
+# Re-render an already-uploaded composition (skips zip + upload).
+hyperframes cloud render --asset-id asst_abc123
+
+# Render from a public URL (no upload).
+hyperframes cloud render --url https://cdn.example.com/site.zip
+```
+
+##### 通过 `--idempotency-key` 安全重试
+
+CLI 通过强制刷新 OAuth 令牌并重播失败的请求，以透明方式重试 `401 Unauthorized`。对于大多数读取来说，这是无害的，但 `POST /v3/assets` （zip 上传）本身*不是*幂等的 - 没有 `Idempotency-Key` 的重试将创建重复的资产并对工作区进行两次计费。
+
+每当您想要安全重试 `cloud render` 时，请传递 `--idempotency-key <key>`。密钥被转发到上传和提交调用；服务器对每个端点进行幂等性作用域，因此在两个步骤中重复使用相同的值是安全的，并且可以防止任一步骤出现重复。每个逻辑渲染使用 UUID，或 `[A-Za-z0-9_:.-]` 中的任何不透明字符串（1-255 个字符）。
+
+```bash
+hyperframes cloud render . --idempotency-key "$(uuidgen)"
+```
+
+#### `cloud list`
+
+通过最近渲染的页面。基于游标：`--limit` 限制单个页面（1-100），`--token` 从上一个 `next_token` 恢复，`--all` 遍历完整列表直到耗尽。
+
+```bash
+hyperframes cloud list
+hyperframes cloud list --limit 50 --json
+hyperframes cloud list --all
+```
+
+#### `cloud get <render_id>`
+
+获取一次渲染的完整详细记录，包括短期签名的 `video_url` 和 `thumbnail_url` （预签名的 S3 URL — 按需重新获取而不是缓存）。
+
+```bash
+hyperframes cloud get hfr_abc123
+hyperframes cloud get hfr_abc123 --json
+```
+
+#### `cloud delete <render_id>`
+
+软删除渲染。随后的 `GET` 调用会返回 404，签名的视频 URL 很快就会停止工作。交互提示确认；通过 `--no-confirm` 绕过脚本。
+
+```bash
+hyperframes cloud delete hfr_abc123
+hyperframes cloud delete hfr_abc123 --no-confirm --json
+```
+
+### 何时选择 `cloud` vs `lambda` vs 本地渲染
+
+- `hyperframes render`（本地）：最快的迭代循环。在作曲创作期间使用。
+- `hyperframes lambda render`：自带 AWS 分布式渲染。当您已经投资了 AWS 并且希望在自己的帐户上实现分块并行时，请使用。
+- `hyperframes cloud render`：零基础设施选项。 HeyGen 运行渲染；您按积分付费。当您不想在本地管理 Chrome/ffmpeg/AWS 时使用。
+
+### 身份验证 + 基本 URL
+
+`cloud` 重用 `hyperframes auth status` 解析的凭证。使用 `HEYGEN_API_URL`（默认 `https://api.heygen.com`）覆盖用于分段测试的 API 基础。
+
+## HyperFrames lambda
+
+将 HyperFrames 分布式渲染部署到 AWS Lambda 并从您的笔记本电脑或 CI 驱动渲染。
+
+`hyperframes lambda` 命令组包含 `@hyperframes/aws-lambda` SDK 和 AWS SAM，因此端到端渲染需要三个命令：
+
+```bash
+hyperframes lambda deploy
+hyperframes lambda render ./my-project --width 1920 --height 1080 --wait
+hyperframes lambda destroy   # when you're done
+```
+
+### 先决条件
+
+- 配置的 AWS 凭证（环境变量、`~/.aws/credentials`、SSO 或 IMDS）。
+- `PATH` 上的 [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)。
+- `PATH` 上的 `bun`（用于构建 Lambda 处理程序 ZIP）。
+
+### 子命令
+
+#### `lambda deploy`
+
+构建 `packages/aws-lambda/dist/handler.zip` 并将堆栈部署在 `examples/aws-lambda/template.yaml` 处。成功后，写入 `<cwd>/.hyperframes/lambda-stack-<stackName>.json` ，以便其他子命令不需要重新派生存储桶/状态机 ARN。
+
+```bash
+hyperframes lambda deploy \
+  --stack-name=hyperframes-prod \
+  --region=us-east-1 \
+  --concurrency=8 \
+  --memory=10240
+```
+
+幂等 — 当没有任何变化时，在相同的 `--stack-name` 上重新运行将解析为无操作。
+
+#### `lambda sites create <projectDir>`
+
+Tars + 使用内容寻址密钥将 `<projectDir>` 上传到 S3。返回一个 `siteId` ，您可以在多个渲染中重复使用，因此同一棵树的重新渲染会跳过上传。
+
+```bash
+hyperframes lambda sites create ./my-project
+# → siteId: abc1234deadbeef0  (stable across re-runs of the same tree)
+
+hyperframes lambda render ./my-project --site-id=abc1234deadbeef0 --width 1920 --height 1080
+```
+
+#### `lambda render <projectDir>`
+
+启动 Step Functions 执行。立即返回 `renderId` （使用 `lambda progress` 进行轮询），除非设置了 `--wait` ，在这种情况下，CLI 会阻塞，直到渲染完成并流式传输每个块的进度线。
+
+```bash
+hyperframes lambda render ./my-project \
+  --width=1920 --height=1080 --fps=30 --format=mp4 \
+  --chunk-size=240 --max-parallel-chunks=16 \
+  --wait
+```
+
+`--json` 将人类可读的输出交换为机器可解析的 JSON 快照。
+
+该组合可以使用 `--variables` / `--variables-file` 进行参数化，镜像本地 `hyperframes render` 标志。变量流入 Step Functions 执行输入并以 `window.__hfVariables` 形式到达每个块工作线程。与组合物的 `data-composition-variables` 声明不匹配打印为警告；传递 `--strict-variables` 会使命令失败。
+
+```bash
+hyperframes lambda render ./my-template --site-id=abc1234deadbeef0 \
+  --width=1920 --height=1080 \
+  --variables '{"title":"Hello Alice","accent":"#ff0000"}'
+```
+
+```bash
+hyperframes lambda render ./my-template --site-id=abc1234deadbeef0 \
+  --width=1920 --height=1080 \
+  --variables-file ./alice.json --strict-variables
+```
+
+变量在 Step Functions 标准执行输入内传输，AWS 的整个负载上限为 256 KiB。通过变量传递类型化数据（字符串、数字、结构化记录）；组合在渲染时解析 URL 引用媒体资产（图像、音频、视频），而不是内联字节。该开发工具包会在任何 AWS 调用运行之前验证客户端的大小并拒绝过大的输入，并显示明显的错误 - 请参阅 [templates-on-lambda 指南](/deploy/templates-on-lambda) 了解 URL-your-assets 约定。
+
+#### `lambda render-batch <projectDir>`
+
+从 JSONL 批处理文件扇出 N 个个性化渲染——自动化模板渲染管道的头条人体工学。部署站点一次（或使用 `--site-id` 跳过），然后使用每个条目 `variables` 和 `outputKey` 调用每个批处理行 `renderToLambda`。并发 Step Functions 启动上限为 `--max-concurrent`（默认为 50），因此 10 000 个条目的批处理不会尝试一次生成 10 000 个执行并超出 AWS 账户限制。
+
+批处理文件格式（JSONL — 每行一个 JSON 对象）：
+
+```jsonl
+{"outputKey": "renders/alice.mp4", "variables": {"name": "Alice", "accent": "#ff0000"}}
+{"outputKey": "renders/bob.mp4",   "variables": {"name": "Bob",   "accent": "#0000ff"}}
+{"outputKey": "renders/carol.mp4", "variables": {"name": "Carol"}, "executionName": "hf-carol-001"}
+```
+
+```bash
+hyperframes lambda render-batch ./my-template \
+  --batch ./users.jsonl \
+  --width 1920 --height 1080 \
+  --max-concurrent 10
+```
+
+该动词打印一个清单——每个输入行一行——带有 `executionArn` + 状态：
+
+```
+Batch dispatched: 3 started, 0 failed-to-start.
+
+  ✓ line 1  renders/alice.mp4  arn:aws:states:us-east-1:1234:execution:hf:hf-render-...
+  ✓ line 2  renders/bob.mp4    arn:aws:states:us-east-1:1234:execution:hf:hf-render-...
+  ✓ line 3  renders/carol.mp4  arn:aws:states:us-east-1:1234:execution:hf:hf-carol-001
+```
+
+传递 `--json` 作为机器可读的形式。通过 `hyperframes lambda progress <renderId>` 轮询每个执行（或使用返回的 `executionArn`）。
+
+`--dry-run` 跳过 AWS 调用并为每个条目打印带有 `status: "would-invoke"` 的清单 — 在提交 N 个可计费执行之前使用它来检查批处理文件：
+
+```bash
+hyperframes lambda render-batch ./my-template --batch ./users.jsonl \
+  --width 1920 --height 1080 --dry-run --json
+```
+
+`--max-concurrent` 仅适用于协调器端：它限制同时运行的 `StartExecution` 调用数量，而不是帐户可以运行的 Lambda 调用数量。 AWS 账户级 Lambda 并发限制向上一级，`render-batch` 无法强制执行；根据您账户的 `concurrent-execution` 配额以及您通过 `lambda deploy --concurrency=<N>` 配置的 Lambda 预留并发数选择 `--max-concurrent`。
+
+#### `lambda progress <renderId | executionArn>`
+
+打印一份进度快照 — 总体百分比、渲染的帧、Lambda 调用、应计成本和任何错误。接受裸 `renderId` （根据堆栈的状态机 ARN 解析）或完整 SFN 执行 ARN。
+
+```bash
+hyperframes lambda progress hf-render-abcd1234
+```
+
+#### `lambda destroy`
+
+调用 `sam delete --no-prompts` 并删除本地状态文件。渲染 S3 存储桶配置有 CloudFormation `Retain`，因此它不会被破坏 - 如果您想要恢复存储，请清空并通过 AWS 控制台/CLI 将其删除。
+
+#### `lambda policies role | user | validate`
+
+打印或验证 CLI 部署/调用/销毁堆栈所需的最低 IAM 策略。
+
+```bash
+# Print an inline-policy doc you can attach to an IAM user that runs the CLI.
+hyperframes lambda policies user
+
+# Print { TrustRelationship, InlinePolicy } for an IAM role (default: cloudformation principal).
+hyperframes lambda policies role --principal=cloudformation
+
+# Validate a checked-in policy still covers the CLI's needs.
+hyperframes lambda policies validate ./infra/iam/hyperframes-deploy.json
+```
+
+`validate` 读取 JSON 文档，并检查其 `Effect: Allow` 操作与 CLI 所需操作集的并集，扩展 `s3:*` / `s3:Get*` / `*` 通配符。缺少的操作打印到 stderr 并且命令以非零值退出 - 将其连接到 CI 以在下一次部署失败之前捕获偏差。
+
+操作列表故意很宽泛 (`Resource: "*"`)，因为 CloudFormation 会在每个采用者的首次部署时创建新的函数/状态机/存储桶 ARN。具有更严格安全态势的采用者应在首次成功运行后将 `Resource` 缩小到已部署的 ARN。
+
+### 国家档案
+
+`hyperframes lambda` 将每个堆栈元数据保存在 `<cwd>/.hyperframes/lambda-stack-<name>.json` 下，因此动词不需要每次都调用 `describe-stacks` 。根据您的工作流程将文件提交到存储库或 `.gitignore` — 它包含存储桶名称、状态机 ARN 和区域，这些都不是秘密，但所有这些都是 AWS 账户识别信息。
+
+## HyperFrames.json
+
+`hyperframes init` 在每个新项目的根目录写入 `hyperframes.json` 文件。 `hyperframes add` 读取它以了解从哪个注册表中提取项目以及将其放置在何处。编辑文件（或删除它以恢复默认值）以重塑项目布局或指向自定义注册表。
+
+```json
+{
+  "$schema": "https://hyperframes.heygen.com/schema/hyperframes.json",
+  "registry": "https://raw.githubusercontent.com/heygen-com/hyperframes/main/registry",
+  "paths": {
+    "blocks": "compositions",
+    "components": "compositions/components",
+    "assets": "assets"
+  }
+}
+```
+
+| 场地 | 描述 |
+|-------|-------------|
+| `registry` | 从中提取的注册表 `add` 的基本 URL。默认为公共超框架注册表。 |
+| `paths.blocks` | 其中块 `.html` 文件落地（相对于项目根）。 |
+| `paths.components` | 组件文件所在的位置（相对于项目根目录）。 |
+| `paths.assets` | 引用的资源文件（图像、字体）所在的位置。 |
+
+缺失的字段将使用默认值填充 - 您只需指定要覆盖的内容即可。
+
+## 相关套餐
+
+<CardGroup cols={2}>
+  <Card title="制片人" icon="film" href="/packages/producer">
+    CLI 在底层调用的渲染管道。直接用于编程渲染。
+  </Card>
+  <Card title="工作室" icon="palette" href="/packages/studio">
+    为 `hyperframes preview` 提供支持的编辑器 UI。直接使用嵌入您自己的应用程序中。
+  </Card>
+  <Card title="核" icon="cube" href="/packages/core">
+    类型、linter 和运行时。直接用于自定义工具和集成。
+  </Card>
+  <Card title="引擎" icon="gear" href="/packages/engine">
+    捕获引擎。直接用于自定义帧捕获管道。
+  </Card>
+</CardGroup>

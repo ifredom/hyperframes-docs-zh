@@ -1,0 +1,106 @@
+---
+title: 迁移到 HyperFrames Lambda
+description: "为从另一个单命令部署视频渲染器转向 HyperFrames 的采用者提供并排映射。"
+---
+
+如果您已经在运行使用一个命令部署无服务器视频渲染器的不同框架，则肌肉记忆会清晰地转换：单个 `deploy` 配置堆栈，单个 `render` 启动渲染，单个 `progress` 轮询它，单个 `destroy` 撕毁堆栈。此页面将您现有的概念映射到 HyperFrames 的等效概念上，以便您可以将迁移时间花在实际不同的部分上，而不用重新学习工作流程。
+
+## 概念图
+
+| 在您当前的框架中，您调用... | 在 HyperFrames 中你可以调用... | 笔记 |
+|--------------------------------------|----------------------------|-------|
+| 一次性部署命令 | `hyperframes lambda deploy` | 构建 `packages/aws-lambda/dist/handler.zip` 并运行 `sam deploy`。幂等。 |
+| 一次性网站上传 | `hyperframes lambda sites create ./project` | 内容寻址 S3 密钥 — 通过 HeadObject 200 跳过未更改的树的重新上传。 |
+| 触发渲染 | `hyperframes lambda render ./project --width 1920 --height 1080` | 立即返回 `renderId`；添加 `--wait` 来流式传输每个块的进度。 |
+| 投票渲染进度 | `hyperframes lambda progress <renderId>` | 在同一响应中包括应计成本。 |
+| 拆除 | `hyperframes lambda destroy` | S3 存储桶是 `Retain` 的 — 记录在部署指南中。 |
+| 打印/验证 IAM 政策 | `hyperframes lambda policies user`/`role`/`validate` | 将 `validate` 连接到 CI 中，以便在下一次部署失败之前捕获策略漂移。 |
+
+## 作文格式
+
+如果您当前的框架是**基于React的**，您可以编写JSX组件，将它们注册到`Composition`中，然后渲染器在渲染时编译它们。
+
+在 HyperFrames 中，**组合是纯 HTML 文件**。根元素上的 `data-duration`、`data-width`、`data-height` 和 `data-fps` 属性驱动每个渲染参数。没有 JSX 编译步骤——您编写的内容就是浏览器呈现的内容。
+
+```html
+<!doctype html>
+<html data-duration="10" data-width="1920" data-height="1080" data-fps="30">
+  <body>
+    <h1 style="animation: fade-in 1s">Hello</h1>
+  </body>
+</html>
+```
+
+对于与框架无关的动画，HyperFrames 支持 GSAP、Anime.js、CSS 关键帧、Lottie、Three.js 和 Web 动画 API 的第一方适配器 - [概念](/concepts) 和每项技能文档中对此进行了介绍。
+
+## 渲染配置
+
+大多数采用者的渲染配置直接映射：
+
+| 概念 | HyperFrames等效项 | 它住在哪里 |
+|---------|------------------------|----------------|
+| `fps` | `--fps=30` (CLI) 或 `config.fps` (SDK) | 仅限 24、30、60 — 非整数 NTSC 有理数是仅限进程内的功能。 |
+| `width` / `height` | `--width` / `--height` 标志，或 `config.width` / `config.height` | 偶数 ≤ 7680（yuv420p 奇偶校验）。 |
+| `codec: 'h264' / 'h265'` | `--codec=h264` 或 `--codec=h265` （仅限 mp4） | h265 使用带有封闭 GOP keyint 参数的 libx265，以便无损地分块连续复制往返。 |
+| 输出格式 | `--format=mp4 / mov / webm / png-sequence` | webm 使用 libvpx-vp9 + 封闭 GOP 连续复制。分布式模式在计划时仍然拒绝 HDR mp4。 |
+| 质量预设 | `--quality=draft / standard / high` | 映射到 ffmpeg 编码器预设。 |
+| 帧中的块大小 | `--chunk-size=240`（默认 240） | 30 fps 时约 8 秒；尺寸适合 Lambda 的 15 分钟上限，并带有净空空间。 |
+| 最大并行块数 | `--max-parallel-chunks=16`（默认 16） | 限制 Map 状态的扇出。 |
+| 比特率/CRF | `--bitrate=10M` 或 `--crf=18` | 相互排斥。 |
+
+## 变量（inputProps）
+
+渲染时有效负载 - 某些框架中的 `inputProps`，HyperFrames 中的 `variables` - 是同构的。通过 `data-composition-variables` 在根 `<html>` 元素上声明合成的变量形状，然后在本地使用 `hyperframes render --variables '{...}'` 或在 Lambda 表面上使用 `hyperframes lambda render --variables` 传递每次渲染值。同样的 256 KiB 执行输入上限和“URL 您的资产，不要内联 base64”约定适用。
+
+完整映射 — `defaultProps` → 声明、`useCurrentFrame()` + `props.<x>` → `__hyperframes.getVariables().<x>`、`renderMediaOnLambda({ inputProps })` → `renderToLambda({ config: { variables } })` — 位于 [Lambda 上的模板](/deploy/templates-on-lambda#migrating-from-remotion-lambda-inputprops) 中。
+
+## HyperFrames 有何不同之处
+
+合同有意与类似框架不同的一些领域。预先将它们呈现出来，这样迁移就不会在部署过程中让您感到意外。
+
+### 确定性 Chrome 路径是强制性的
+
+HyperFrames 在分布式模式下拒绝 `data-gpu-mode="hardware"` — 硬件 GL 在块边界上是不确定的，并且每个块的连续复制假定字节级可再现性。选择在进程中使用硬件 GL 的合成必须放弃它以进行 Lambda 渲染。 Lambda 处理程序在计划中触发类型化的 `BROWSER_GPU_NOT_SOFTWARE` 不可重试错误，该错误很容易在进度输出中捕获。
+
+### 字体获取失败关闭
+
+`failClosedFontFetch` 在分布式模式下默认开启。引用无法获取的 `font-family` HyperFrames 的组合将在计划时 (`FONT_FETCH_FAILED`) 失败，而不是默默地回退到操作系统默认值。如果您当前依赖系统字体后备，请通过 `<link rel="stylesheet">` 或 `@fontsource/*` 导入显式列出您需要的字体。
+
+### 没有 HDR（还）
+
+`hdrMode: 'force-hdr'` 在计划时被拒绝。 v1.5 backlog 通过 `-bsf:v hevc_metadata` 重新申请涵盖 HDR mp4；目前，HDR 渲染使用 Lambda 外部的进程内渲染器。
+
+### webm 使用封闭式 GOP VP9
+
+webm 分布式渲染通过 libvpx-vp9 使用 `-g <chunkSize>`、`-keyint_min <chunkSize>`、`-auto-alt-ref 0` 和 `-cpu-used 2`。 alt-ref 禁用是承载位：libvpx-vp9 默认的不可显示的 alt-ref 帧可以落在 GOP 中的任何位置，这会破坏块接缝处的连续复制。 Closed-GOP 在每个块边界处强制使用关键帧，因此 `ffmpeg -f concat -c copy` 可以无损往返。输出是 `yuva420p` 以保留 alpha。音频被混合为 Opus。
+
+分布式 webm 文件通常比在相同 CRF 处理中渲染的相同合成文件大 10-25%，因为封闭 GOP 强制比处理中单通道发出更多的关键帧。每块编码也比 libvpx-vp9 的默认速度/质量权衡慢（`-cpu-used 2` 比 `-deadline good` 的默认值更保守）。单机进程内渲染器仍然是短 webm 渲染的正确选择；一旦渲染的挂钟超过一台机器所提供的，分布式就会收回成本。
+
+### 状态文件默认是本地的
+
+`hyperframes lambda deploy` 写入 `<cwd>/.hyperframes/lambda-stack-<name>.json`，因此后续动词不会重新派生存储桶/状态机 ARN。两个工作树生成两个不同的状态文件。如果您需要跨 CI 工作人员共享默认位置，请符号链接目录或在每次调用时显式传递 `--stack-name` 。
+
+### IAM 政策是打印后缩小范围
+
+`hyperframes lambda policies user/role` 发出的默认策略文档使用 `Resource: "*"`，因为 CloudFormation 堆栈会在每个采用者的首次部署时创建新的 ARN。首次成功部署后，将 `Resource` 缩小到已部署的 ARN — 它们可以从 CFN 输出中预测。 CI 用户通常会将缩小的策略检查到源代码中，并运行 `hyperframes lambda policies validate ./infra/policy.json` 作为预部署入口。
+
+## 迁移清单
+
+1. **清点**您想要迁移的组合。过滤掉任何需要 HDR 的内容——暂时保留在您当前的框架上。 webm 渲染通过封闭 GOP VP9 + concat-copy 分发（请参阅上面的 webm 部分）。
+2. **将**每个作品翻译为纯 HTML。 `[Concepts](/concepts)` 页面涵盖了数据属性约定； `/hyperframes` 技能 (`npx skills add heygen-com/hyperframes`) 使 Claude / Cursor / Codex 也意识到它们。
+3. **将新组合与旧组合一起连接到您的构建管道中。 HyperFrames 不需要外部捆绑器 - 您可以直接针对 HTML `npx hyperframes preview` 。
+4. **部署**在单独的 AWS 账户中或首先使用 `--stack-name=hyperframes-staging`。使用 `--wait` 运行真实渲染；验证输出字节。
+5. **将策略**添加到您的 CI。每个 PR 上 `hyperframes lambda policies user > infra/iam/hyperframes.json` 然后 `hyperframes lambda policies validate infra/iam/hyperframes.json`。
+6. **通过将现有自动化指向新的渲染端点来切换**。保持旧部署处于活动状态，直到您验证了发布周期的滚动渲染，然后 `hyperframes lambda destroy` 暂存堆栈并停用前一个部署。
+
+## 非 Lambda 运行时
+
+如果您不特别需要 Lambda，则相同的 `@hyperframes/producer/distributed` 原语可以在任何可用的 Node + Chrome + ffmpeg + S3 可用的地方运行。参考 Dockerfile 位于 `examples/k8s-jobs/Dockerfile.example` ，供采用者运行：
+
+- Google Cloud Run 职位
+- Azure 容器应用作业
+- AWS ECS Fargate
+- Kubernetes 工作 / Argo 工作流程
+- 强大的虚拟机上的普通 Docker
+
+自己构建——我们不会将 Docker 镜像发布到注册表。 Dockerfile 是内联记录的，并在您签出的版本上烘焙 Node 22 + chrome-headless-shell + ffmpeg + 生产者。

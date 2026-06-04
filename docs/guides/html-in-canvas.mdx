@@ -1,0 +1,130 @@
+---
+title: "HTML 画布"
+description: "将实时 HTML 渲染为 WebGL 纹理 — GPU 着色器、3D 几何体以及任何 DOM 内容上的电影效果。"
+---
+
+# HTML 画布
+
+HTML-in-Canvas API (`drawElementImage`) 可让您以 GPU 速度将实时渲染的 DOM 元素直接捕获到画布中。这意味着您可以采用任何 HTML（仪表板、表单、登陆页面、应用程序 UI），并使用着色器、3D 转换和后处理效果将它们渲染为 WebGL 场景中的纹理。
+
+<Warning>
+**需要 Chrome 标志。** `drawElementImage` API 是实验性的，必须手动启用：
+
+1. 在 Chrome 或 Brave 中打开 `chrome://flags/#canvas-draw-element`
+2. 将 **CanvasDrawElement** 设置为 **启用**
+3. 重新启动浏览器
+
+HyperFrames 在渲染过程中自动启用此标志 (`--enable-features=CanvasDrawElement`)，因此渲染视频无需手动设置即可工作。仅在 Studio 中进行实时预览时才需要该标志。
+</Warning>
+
+## 它是如何运作的
+
+1. 将 HTML 内容放入 `<canvas layoutsubtree>` 元素内
+2. 浏览器将 HTML 子元素呈现为普通 DOM
+3. 调用 `ctx.drawElementImage(element, x, y, w, h)` 将渲染的像素捕获到画布中
+4. 使用画布作为 Three.js 纹理，应用着色器，映射到 3D 几何体
+
+```html
+<!-- 1. HTML content lives inside the canvas -->
+<canvas id="capture" layoutsubtree width="1920" height="1080">
+  <div class="my-dashboard">
+    <h1>Revenue: $4.2M</h1>
+    <div class="chart">...</div>
+  </div>
+</canvas>
+
+<!-- 2. WebGL canvas for 3D rendering -->
+<canvas id="theater" width="1920" height="1080"></canvas>
+```
+
+```javascript
+// 3. Capture HTML to canvas
+var capCanvas = document.getElementById("capture");
+var ctx = capCanvas.getContext("2d");
+ctx.drawElementImage(capCanvas.querySelector(".my-dashboard"), 0, 0, 1920, 1080);
+
+// 4. Use as Three.js texture
+var texture = new THREE.CanvasTexture(capCanvas);
+var material = new THREE.MeshBasicMaterial({ map: texture });
+```
+
+## 是什么让这与众不同
+
+诸如 `html2canvas` 之类的传统方法会在 JavaScript 中重新解析和重新渲染 DOM，它们速度慢、有损耗，并且会错过诸如 `backdrop-filter`、复杂阴影和 Web 字体之类的 CSS 功能。 `drawElementImage` API 使用浏览器自己的合成器，因此：
+
+- **像素完美** — 每个 CSS 功能都受支持，因为浏览器会原生渲染它
+- **GPU 加速** — 以 60fps 的速度捕获，足够快的速度用于实时动画
+- **实时内容** — HTML 可以在捕获之间进行动画、滚动和更改
+- **同时多个捕获** — 无嵌套限制，多个 `<canvas layoutsubtree>` 元素可以捕获同一组合中的不同内容
+
+## 特征检测
+
+在使用 API 之前始终进行功能检测。对于未启用该标志的浏览器，组合应该优雅地回退。
+
+```javascript
+function isSupported() {
+  var tc = document.createElement("canvas");
+  if (!("layoutSubtree" in tc)) return false;
+  tc.setAttribute("layoutsubtree", "");
+  var ctx = tc.getContext("2d");
+  return ctx && typeof ctx.drawElementImage === "function";
+}
+
+if (isSupported()) {
+  ctx.drawElementImage(element, 0, 0, w, h);
+} else {
+  // Fallback: draw text directly on canvas, use static image, etc.
+}
+```
+
+## 重新捕捉每一帧
+
+对于动画内容（滚动、过渡、计数器），请在渲染循环内调用 `drawElementImage` 以更新每帧的纹理：
+
+```javascript
+function render() {
+  // Update HTML state
+  scrollContainer.style.transform = "translateY(-" + scrollOffset + "px)";
+  counterEl.textContent = Math.round(currentValue);
+
+  // Re-capture
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawElementImage(htmlElement, 0, 0, W, H);
+  texture.needsUpdate = true;
+
+  // Render 3D scene with updated texture
+  renderer.render(scene, camera);
+}
+```
+
+## 目录块
+
+一次安装所有 HTML-in-Canvas 块：
+
+```bash
+npx hyperframes add html-in-canvas
+```
+
+或者单独安装：
+
+| 堵塞 | 描述 | 安装 |
+|-------|-------------|---------|
+| [iOS 26 液态玻璃主屏幕](/catalog/blocks/ios26-liquid-glass) | iPhone 主屏幕带有实时 Liquid Glass 通知和小部件 | `npx hyperframes add ios26-liquid-glass` |
+| [macOS Tahoe 液体玻璃桌面](/catalog/blocks/macos-tahoe-liquid-glass) | 带有液体玻璃窗口、扩展坞和通知的 MacBook 桌面 | `npx hyperframes add macos-tahoe-liquid-glass` |
+| [液体玻璃通知](/catalog/blocks/liquid-glass-notification) | 带有进度和回复状态的原生玻璃通知堆栈 | `npx hyperframes add liquid-glass-notification` |
+| [iPhone 和 MacBook](/catalog/blocks/vfx-iphone-device) | 具有实时 HTML 屏幕的真实 3D GLTF 设备 | `npx hyperframes add vfx-iphone-device` |
+| [文本光标](/catalog/blocks/vfx-text-cursor) | 带有彩色阴影的戏剧性文本 | `npx hyperframes add vfx-text-cursor` |
+| [门户](/catalog/blocks/vfx-portal) | 体积光的尺寸突破 | `npx hyperframes add vfx-portal` |
+| [粉碎](/catalog/blocks/vfx-shatter) | HTML 碎成玻璃碎片 | `npx hyperframes add vfx-shatter` |
+| [磁性](/catalog/blocks/vfx-magnetic) | 磁场粒子可视化 | `npx hyperframes add vfx-magnetic` |
+| [液体背景](/catalog/blocks/vfx-liquid-background) | 有机液体模拟 | `npx hyperframes add vfx-liquid-background` |
+
+## 渲染
+
+HyperFrames 在渲染过程中自动启用 Chrome 标志。无需特殊配置：
+
+```bash
+npx hyperframes render --output my-video.mp4
+```
+
+对于 Docker 渲染，该标志也会在容器内自动启用。

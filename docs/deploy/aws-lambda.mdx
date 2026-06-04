@@ -1,0 +1,217 @@
+---
+title: AWS Lambda
+description: "将分布式 HyperFrames 渲染部署到 AWS Lambda 并从笔记本电脑或 CI 驱动渲染。"
+---
+
+HyperFrames 提供一流的 AWS Lambda 部署：一个 Lambda 函数负责 Step Functions 标准工作流程，该工作流程由多个并行块工作线程渲染，中间工件位于 S3 中。配置完 AWS 凭证后，端到端就是三个命令。
+
+```bash
+hyperframes lambda deploy
+hyperframes lambda render ./my-project --width 1920 --height 1080 --wait
+hyperframes lambda destroy
+```
+
+具有 [变量](/concepts/variables) 的模板在同一个 Lambda 堆栈上工作 - 在组合上声明 `data-composition-variables`，然后使用 `--variables` 传递每个渲染的值，或使用 `lambda render-batch` 扇出整个批次。请参阅 [Lambda 上的模板](/deploy/templates-on-lambda) 指南，了解个性化渲染管道（单个渲染、来自 JSONL 的批处理、编程 SDK）和 256 KiB Step Functions 执行输入上限。
+
+## 建筑学
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ Step Functions state machine                                     │
+│   Plan → Map(N) RenderChunk → Assemble                           │
+└──────────────────────────────────────────────────────────────────┘
+                              │ dispatches by event.Action
+                              ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ One Lambda function (packages/aws-lambda/dist/handler.zip)       │
+│   handler.mjs                                                    │
+│     ├─ Action="plan"        → @hyperframes/producer/distributed  │
+│     ├─ Action="renderChunk" → @hyperframes/producer/distributed  │
+│     └─ Action="assemble"    → @hyperframes/producer/distributed  │
+│   bin/ffmpeg                — ffmpeg-static                      │
+│   node_modules/@sparticuz/chromium/ — Lambda-optimised Chromium  │
+└──────────────────────────────────────────────────────────────────┘
+                              │ pure functions over local paths
+                              ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ S3 bucket — plan tarball + per-chunk outputs + final mp4         │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+Lambda 处理程序是一个精简调度：解析 Step Functions 事件，将输入从 S3 下载到 `/tmp`，从 `@hyperframes/producer/distributed` 调用 OSS 原语，上传回输出，返回一个小的 JSON 结果。一切繁重的事情——捕获、编码、音频混合——都发生在 OSS 原语内部。
+
+## 先决条件
+
+| 工具 | 为什么 | 安装 |
+|------|-----|---------|
+| AWS 凭证 | CLI 和部署步骤都调用 AWS API。 | 环境变量、`~/.aws/credentials`、SSO 或 IMDS — 任何链 `boto3` 都会解析。 |
+| AWS SAM CLI | `hyperframes lambda deploy/destroy` 向 `sam deploy`/`sam delete` 发起攻击。 | [安装指南](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) |
+| `bun` | 用于在部署时构建 `packages/aws-lambda/dist/handler.zip`。 | `npm install -g bun` 或 [bun.sh](https://bun.sh) |
+| HyperFrames 存储库结账 | `lambda deploy` 从源代码构建 Lambda 处理程序 ZIP。在结帐之外部署的采用者可以将 `HYPERFRAMES_REPO_ROOT` 设置为指向 1。 | `git clone https://github.com/heygen-com/hyperframes` |
+
+## 三种部署路径
+
+### 路径 1 — `hyperframes lambda` CLI（推荐）
+
+CLI 是 SAM 模板 + `@hyperframes/aws-lambda` SDK 的薄包装。对于大多数采用者来说，这是正确的起点。
+
+```bash
+hyperframes lambda deploy \
+  --stack-name=hyperframes-prod \
+  --region=us-east-1 \
+  --concurrency=8 \
+  --memory=10240
+```
+
+默认的 `--concurrency=8` 对于首次使用的用户来说是故意保守的。 Lambda Map 状态的默认设置将让无限数量的块并行扇出； 8 将您在失控渲染上的最坏情况支出限制为大约 `8 × (15 min × 10 GB × $0.0000167/GB-s) ≈ $1.20`。在确定典型渲染的块数大小后提高它。
+
+在 `deploy` 之后，使用以下命令渲染任何内容：
+
+```bash
+hyperframes lambda render ./my-project --width 1920 --height 1080 --wait
+```
+
+`--wait` 标志块并流式传输每个块的进度 + 应计成本；将其置于“即发即忘”状态，然后按照您自己的节奏使用 `hyperframes lambda progress <renderId>` 进行轮询。
+
+有关完整标志文档，请参阅 [CLI 参考](/packages/cli#hyperframes-lambda)。
+
+#### 使用 `sites create` 预演项目
+
+在每次 `lambda render` 调用 re-tars 上重新渲染相同的项目树并每次重新上传。对于紧密的内部循环（CI 烟雾作业、演示流程中的提示迭代），预先准备一次项目并重复使用上传：
+
+```bash
+hyperframes lambda sites create ./my-project
+# → Site ID: a1b2c3d4e5f6g7h8 (content-addressed)
+
+hyperframes lambda render ./my-project --site-id=a1b2c3d4e5f6g7h8 \
+  --width 1920 --height 1080 --wait
+```
+
+`siteId` 通过项目树的 SHA-256 进行内容寻址；在未更改的树上重新运行 `sites create` 会通过 `HeadObject` 短路跳过上传。将相同的 `--site-id` 传递给任意数量的 `lambda render` 调用 — 它们都会重用同一个 S3 PUT。
+
+### 路径 2 — 直接 SAM 部署
+
+如果您想在部署之前读取 CloudFormation，或者需要自定义拓扑（额外警报、SNS 订阅者、KMS 密钥等），请直接针对 `examples/aws-lambda/template.yaml` 处的模板调用 SAM：
+
+```bash
+cd packages/aws-lambda
+bun run build:zip                     # produces dist/handler.zip
+cd ../../examples/aws-lambda
+sam deploy \
+  --stack-name=hyperframes-prod \
+  --region=us-east-1 \
+  --resolve-s3 \
+  --capabilities CAPABILITY_IAM \
+  --no-confirm-changeset \
+  --parameter-overrides ChromeSource=sparticuz ReservedConcurrency=8
+```
+
+该模板会发出您调用渲染所需的三个 CloudFormation 输出：
+
+- `RenderBucketName` — 用于计划 tarball + 每块输出 + 最终渲染的 S3 存储桶。
+- `RenderStateMachineArn` — Step Functions 标准工作流程，用于编排计划 → 映射 → 组装。
+- `RenderFunctionArn` — 状态机调度的单个 Lambda 函数。
+
+<Warning>
+SAM 模板自身的 `ReservedConcurrency` 默认值是 `-1` （未保留，帐户默认值）。路径 1 CLI 将其覆盖为 `8` 以限制首次支出；如果您在此处从 `--parameter-overrides` 中删除 `ReservedConcurrency`，您将获得未保留的默认值。明确设置它，除非您已经调整了典型渲染扇出的大小。
+</Warning>
+
+### 路径 3 — CDK 构建
+
+对于已经运行 CDK 的用户，`@hyperframes/aws-lambda` 包导出 `HyperframesRenderStack` L2 构造，该构造发出与 SAM 模板相同的拓扑：
+
+```ts
+import { App, CfnOutput, Stack } from "aws-cdk-lib";
+import { HyperframesRenderStack } from "@hyperframes/aws-lambda/cdk";
+
+const app = new App();
+const stack = new Stack(app, "MyApp");
+const render = new HyperframesRenderStack(stack, "Render", {
+  projectName: "hyperframes",
+  lambdaMemoryMb: 10240,
+  reservedConcurrency: 8,
+  chromeSource: "sparticuz",
+});
+
+new CfnOutput(stack, "RenderBucketName", { value: render.bucket.bucketName });
+new CfnOutput(stack, "StateMachineArn", { value: render.stateMachine.stateMachineArn });
+```
+
+`aws-cdk-lib` 和 `constructs` 被声明为 `@hyperframes/aws-lambda` 的 **可选对等依赖**，因此只需要 SDK 的消费者无需支付 CDK 导入费用。
+
+该构造公开 `.bucket`、`.renderFunction` 和 `.stateMachine`，因此您可以将仪表板、SNS 主题或其他 AWS 资源与其一起连接，而无需重新派生 ARN。
+
+## IAM权限
+
+CLI 附带内置 IAM 引导程序，以避免出现“用户无权执行 iam:CreateRole”首次部署陷阱：
+
+```bash
+# Print an inline policy doc to attach to the IAM user that runs the CLI.
+hyperframes lambda policies user
+
+# Print { TrustRelationship, InlinePolicy } for a CloudFormation service role.
+hyperframes lambda policies role --principal=cloudformation
+
+# Validate a checked-in policy still covers the CLI's needs (exit non-zero on missing).
+hyperframes lambda policies validate ./infra/iam/hyperframes-deploy.json
+```
+
+生成的文档为 CLI 所需的操作集授予 `Resource: "*"`。首次成功部署后，您可以将 `Resource` 缩小到已部署的 ARN - 可根据上面的 CloudFormation 输出进行预测。在 CI 中运行 CLI 的采用者通常会将策略文档检查到源代码管理中，并运行 `policies validate` 作为预部署步骤来捕获偏差。
+
+## 成本形状
+
+Lambda 渲染按 GB 秒计费（Lambda 计费持续时间 × 配置内存），再加上 Step Functions 标准工作流程的微小的每个状态转换费用。 `hyperframes lambda progress` 公开运行计数：
+
+```bash
+hyperframes lambda progress my-render-id
+# Status:    SUCCEEDED
+# Progress:  100%
+# Frames:    480 / 480
+# Lambdas:   5
+# Cost:      $0.0214 (Lambda $0.0210 + SFN $0.0004)
+# Output:    s3://hyperframes-renders/.../output.mp4
+```
+
+成本数字是尽力而为：Lambda 计费持续时间来自处理程序自己的 `DurationMs` 返回值（SFN 历史记录显示在成功负载中），并且不包括 S3 传输。如果你想验证的话，数学在 `packages/aws-lambda/src/sdk/costAccounting.ts` 中； CLI 显示的值与舍入噪音内的 AWS 账单报告相符。
+
+## 故障排除
+
+### `sam deploy` 失败并显示“堆栈已存在”
+
+传递您第一次使用的相同 `--stack-name`。 SAM 是幂等的 — 在现有堆栈上重新运行会解析为无操作或就地更新。
+
+### `User is not authorized to perform iam:CreateRole`
+
+运行 `lambda deploy` 的 IAM 凭证无权创建 CloudFormation 所需的服务角色。运行 `hyperframes lambda policies user` 并将打印的策略附加到您的 IAM 用户（或获取 `policies role` 输出并让您的管理员创建部署角色）。
+
+### `Lambda function failed: PLAN_HASH_MISMATCH`
+
+Step Functions 使用与 S3 上的 planDir 不匹配的计划哈希调用 `renderChunk`。几乎总是意味着本地 `plan()` 构建和部署的 Lambda ZIP 之间的生产者版本不同。重新运行 `hyperframes lambda deploy` （重建 ZIP）并重新渲染。
+
+### `Lambda function failed: BROWSER_GPU_NOT_SOFTWARE`
+
+处理程序启动了 Chromium，但运行时探测器发现了非 SwiftShader GL 后端。硬件 GL 在块边界上是不确定的，因此分布式渲染在运行时图像/启动标志层（而不是在组合层）拒绝它。重建处理程序 ZIP 并重新部署：
+
+```bash
+bun run --cwd packages/aws-lambda build:zip
+hyperframes lambda deploy --stack-name=<your-stack>
+```
+
+构建管道固定 `@sparticuz/chromium` + Chrome 标志 (`--use-gl=swiftshader --use-angle=swiftshader`)，因此新的部署几乎总是可以解决此问题。如果它仍然存在，则堆栈的 Lambda 函数指向先前部署中的陈旧处理程序 ZIP — `lambda deploy` 始终会重建，因此重新运行会解除它。
+
+### 渲染似乎卡在 `RUNNING`
+
+最常见的是多块渲染上的 Lambda 冷启动链。 Map 状态的保留并发限制了可以并行运行的块数 - 如果您设置 `--concurrency=4` 并且渲染有 16 个块，状态机将按 4 个批次处理它们。 `hyperframes lambda progress <id>` 显示正在运行的调用数量。
+
+如果进度在超过 10 分钟内没有进展，请检查 AWS 控制台中的 Step Functions 执行 - 失败的 Lambda 调用包括键入的错误名称（`FONT_FETCH_FAILED`、`FFMPEG_VERSION_MISMATCH` 等），这会使状态机短路。
+
+### 拆除不会回收 S3 存储
+
+渲染存储桶是在删除时使用 CloudFormation `Retain` 创建的 — `hyperframes lambda destroy` （或 `sam delete`）会破坏函数 + 状态机，但存储桶仍然存在。这是有意为之的：它可以保护最终渲染的 MP4 在您重新部署时不会丢失。要完全回收存储，请通过 AWS 控制台 / `aws s3 rb` 清空并删除存储桶。
+
+## v1 表面上没有的内容
+
+- **完成时进行 Webhook。** v1 中没有 — 使用 `hyperframes lambda progress` 进行轮询或观察 Step Functions 执行情况。带有 SNS 主题的 `--webhook` 标志位于第 6c 阶段积压工作中。
+- **`compositions` 发现动词。** 单独提供（计划中的 PR 6.10）；现在，将 `lambda render` 指向包含 `index.html` 的项目目录。
+- **多区域。** 每个 `--region` 都是一个独立的堆栈。没有内置的跨区域故障转移。
+- **HDR。** 分布式模式仅限 SDR。带有 bsf 信号的 HDR mp4 已在 v1.5 待办事项中。

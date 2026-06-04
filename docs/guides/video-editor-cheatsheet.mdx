@@ -1,0 +1,300 @@
+---
+title: 视频编辑器备忘单
+description: "为视频编辑者和创意人员指导代理、剪辑时间、调整布局、预览和发布 HyperFrames 项目提供快速参考。"
+---
+
+当您指挥特工、缩短时间、调整视觉布局、预览和共享 HyperFrames 项目时，可以将其用作快速参考。
+
+## 快速循环
+
+```bash
+npx hyperframes init my-video --example blank
+cd my-video
+npx hyperframes preview
+```
+
+当您的代理编辑 `index.html` 或 `compositions/` 中的文件时，保持预览运行。 Studio 会自动更新，因此您可以指导代理、清理结果、进行手动视觉调整，然后重复。
+
+大多数制作工作应该是这样的：
+
+1. 向工作人员询问第一次剪辑、场景、字幕通道、过渡或清理。
+2. 使用 Studio 预览和时间线来检查时间。
+3. 使用手动 DOM 编辑进行类似 Figma 的布局调整：选择元素、移动它们并直接调整视觉属性。
+4. 要求代理清理或概括您手动更改的任何内容。
+5. Lint、验证、渲染和发布。
+
+在显示或渲染项目之前：
+
+```bash
+npx hyperframes lint
+npx hyperframes validate
+npx hyperframes render --quality standard --output review.mp4
+```
+
+对于快速迭代渲染，请使用草稿质量：
+
+```bash
+npx hyperframes render --quality draft --output draft.mp4
+```
+
+最终交付：
+
+```bash
+npx hyperframes render --quality high --fps 30 --output final.mp4
+```
+
+## 终端快捷方式
+
+快速移动项目：
+
+```bash
+pwd                 # show current folder
+ls                  # list files
+cd my-video         # enter a project folder
+cd ..               # go up one folder
+cd -                # jump back to the previous folder
+open .              # open the current folder in Finder on macOS
+code .              # open the current folder in VS Code, if installed
+```
+
+常见的 HyperFrames 项目文件夹：
+
+```bash
+cd assets           # source videos, images, audio
+cd compositions     # reusable scenes and overlays
+cd ..               # back to the project root
+```
+
+从 `index.html` 所在的项目根目录运行 HyperFrames 命令。如果您不确定自己在哪里，请运行 `pwd`，然后运行 ​​`ls`。如果您看到 `index.html`，那么您来对地方了。
+
+## 预览快捷键
+
+启动工作室：
+
+```bash
+npx hyperframes preview
+```
+
+如果 `3002` 已忙，请使用不同的端口：
+
+```bash
+npx hyperframes preview --port 4567
+```
+
+在 Studio 内，快捷键的分组方式与播放栏的 `⌨` 面板的分组方式相同 - 首先播放，然后是工作区标记、视图控件和应用程序级命令。打开播放栏中的 `⌨` 面板，获取应用内备忘单、跳帧输入以及输入/输出点的实时读数。
+
+### 回放
+
+| 捷径 | 行动 |
+| --- | --- |
+| `Space` | 播放或暂停 |
+| `K` | 停止 |
+| `J` | 向后播放（再按一次可加快穿梭速度） |
+| `L` | 向前播放（再按一次可加快穿梭速度） |
+| `←` / `→` | 步骤1 框架 |
+| `Shift+←` / `Shift+→` | 步骤10帧 |
+
+`J` 和 `L` 构建经典的 NLE 穿梭：每次重复都会提高播放速率。在穿梭机爆发之间轻按 `K` 以停止。按住 `K` 时，点击 `J` 或 `L` 会朝该方向移动一帧。
+
+### 工作区域（进/出点）
+
+| 捷径 | 行动 |
+| --- | --- |
+| `I` | 在播放头处设置入点 |
+| `Shift+I` | 清除入点 |
+| `O` | 在播放头上设置出点 |
+| `Shift+O` | 清除出点 |
+| `A` | 跳转到入点（如果未设置，则合成开始） |
+| `E` | 跳转到出点（如果未设置，则跳转到合成结束点） |
+
+入点和出点定义了**工作区域**。当循环打开时，向前和向后播放都会在这些边界内循环 - 对于收紧过渡或擦洗单个剪辑而不修剪它非常有用。搜索栏在输入和输出之间呈现一条青色带，每个点都有刻度标记。从 `⌨` 面板或使用 `Shift+I` 和 `Shift+O` 清除标记。
+
+### 看法
+
+| 捷径 | 行动 |
+| --- | --- |
+| 预览中的 `Cmd+Scroll` / `Ctrl+Scroll` | 缩放光标处的预览 |
+
+### 应用
+
+| 捷径 | 行动 |
+| --- | --- |
+| `Shift+T` | 显示或隐藏时间线编辑器 |
+| `Cmd+1` / `Ctrl+1` | 将侧边栏切换到合成 |
+| `Cmd+2` / `Ctrl+2` | 将侧边栏切换到资产 |
+| `Cmd+Z` / `Ctrl+Z` | 撤消 |
+| `Cmd+Shift+Z` / `Ctrl+Shift+Z` / `Ctrl+Y` | 重做 |
+| `Delete` / `Backspace` | 删除选定的时间线剪辑或 DOM 元素（未在编辑器中键入时） |
+| `Escape` | 保留子构图或关闭编辑器对话框 |
+
+<Tip>
+  预览使用与渲染相同的运行时，因此视觉帧与输出匹配。 If preview stutters on a heavy frame but the render is clean, that is expected — preview plays in real time, render captures one frame at a time.
+</Tip>
+
+## 代理主导编辑
+
+要求代理验证浏览器中的可见更改。对于用户可见的编辑，一个好的切换是：
+
+```
+Run the preview, check it with agent-browser, take a screenshot, and render a draft MP4 to take a look at the frames with ffmpeg.
+```
+
+## 手动 DOM 编辑
+
+在 Studio 中，您可以直观地编辑 DOM，以进行最后 10% 的创意调整，其中拖动比描述更快。
+
+使用手动 DOM 编辑：
+
+- 将标题、说明文字、产品卡、徽标和叠加层移动到位
+- 调整大小、间距、不透明度、颜色和其他视觉属性
+- 在准确的时间戳检查成分平衡
+- 进行类似 Figma 的放置调整
+
+使用代理用于：
+
+- 从头开始创建场景
+- 重构重复的视觉模式
+- 连接 GSAP 时间表
+- 修复时间中断、布局溢出或渲染错误
+- 将手动视觉调整转变为可重用、干净的 HTML/CSS
+
+手动 DOM 编辑后，要求代理检查差异并保持源代码干净：
+
+```
+I moved the hero title and resized the CTA manually in Studio. Inspect the changes, clean up the CSS if needed, then run lint and validate.
+```
+
+## 编辑器最常使用的 CLI 命令
+
+| 命令 | 用它来 |
+| --- | --- |
+| `npx hyperframes init my-video` | 创建一个新项目 |
+| `npx hyperframes init my-video --example warm-grain` | 从视觉模板开始 |
+| `npx hyperframes init my-video --video source.mp4` | 导入视频并从源音频生成字幕 |
+| `npx hyperframes capture https://example.com` | 捕获网站作为视频的源材料 |
+| `npx hyperframes preview` | 打开实时 Studio 预览 |
+| `npx hyperframes lint` | 在预览或渲染之前发现结构错误 |
+| `npx hyperframes validate` | 在无头 Chrome 中运行组合以捕获运行时错误 |
+| `npx hyperframes inspect` | 查找整个时间轴上的文本溢出和布局问题 |
+| `npx hyperframes snapshot --at 1,3,5` | 以准确的时间戳保存 PNG 检查 |
+| `npx hyperframes render --output final.mp4` | 渲染视频 |
+| `npx hyperframes publish` | 上传项目并获取可共享的 HyperFrames URL |
+| `npx hyperframes doctor` | 检查 Node.js、FFmpeg、Chrome、Docker 和其他依赖项 |
+| `npx hyperframes docs` | 打开本地 CLI 文档 |
+| `npx hyperframes upgrade` | 检查是否有较新的 CLI 版本 |
+
+## 时序备忘单
+
+每个可见的定时图层通常应该是一个剪辑：
+
+```html
+<h1
+  class="clip"
+  data-start="0"
+  data-duration="3"
+  data-track-index="0"
+>
+  Opening title
+</h1>
+```
+
+使用这些属性（如时间线控件）：
+
+| 属性 | 视频编辑器的含义 |
+| --- | --- |
+| `data-start` | 当图层开始时 |
+| `data-duration` | 该层保持活动状态多长时间 |
+| `data-track-index` | 时间轴轨道编号 |
+| `data-media-start` | 媒体文件中的偏移量 |
+| `data-volume` | 音频或视频剪辑的音量 |
+| `data-composition-src` | 嵌套场景或可重复使用的叠加层 |
+
+对于 GSAP 动画，为每个合成注册一个暂停时间线：
+
+```html
+<script>
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
+
+  tl.from("#title", { opacity: 0, y: 40, duration: 0.6 });
+  tl.set({}, {}, 5); // keeps the timeline at least 5 seconds long
+
+  window.__timelines["main"] = tl;
+</script>
+```
+
+<Warning>
+  如果视频提前中断，请检查 GSAP 时间线是否至少与预期编辑一样长。最终的 `tl.set({}, {}, 5)` 模式是解决方案。
+</Warning>
+
+## 渲染预设
+
+| 目标 | 命令 |
+| --- | --- |
+| 快速迭代 | `npx hyperframes render --quality draft --output draft.mp4` |
+| 审核链接 | `npx hyperframes render --quality standard --output review.mp4` |
+| 最终导出 | `npx hyperframes render --quality high --fps 30 --output final.mp4` |
+| 透明覆盖层 | `npx hyperframes render --format webm --output overlay.webm` |
+| 确定性输出 | `npx hyperframes render --docker --output final.mp4` |
+
+使用 WebM 实现透明叠加、标题和下三分之一。当您需要在不同机器上实现像素一致的输出时，请使用 `--docker` 。
+
+## 发布与分享
+
+当您想要共享可编辑项目而不仅仅是渲染的 MP4 时，请使用 `publish`：
+
+```bash
+npx hyperframes publish
+```
+
+Publish 压缩当前项目，上传它，并打印稳定的 `hyperframes.dev` URL。该 URL 包含一个声明令牌，以便收件人可以打开它、声明该项目并继续在 Web 应用程序中进行编辑。
+
+```bash
+npx hyperframes publish ./my-video   # publish a specific folder
+npx hyperframes publish --yes        # skip the confirmation prompt in scripts
+```
+
+发布需要在项目根目录下有一个 `index.html` 。它忽略 `.git`、`node_modules`、`dist`、`.next` 和 `coverage`。
+
+## 什么是代理浏览器
+
+`agent-browser` 是用于 AI 代理的浏览器自动化工具。它会打开 Chrome、导航到预览、单击控件、读取页面状态并捕获屏幕截图。这是代理证明视频预览确实有效的方式，而不仅仅是说代码看起来正确。
+
+典型验证流程：
+
+```bash
+agent-browser open http://localhost:3002
+agent-browser snapshot -i
+agent-browser screenshot --screenshot-dir ./qa
+```
+
+当您希望代理打开 HyperFrames Studio 预览、播放或擦除视频、单击时间线控件、检查可见的 UI 文本、捕获屏幕截图以供查看或记录测试流程的证据时，请使用它。
+
+对于面向编辑者的更改，请保持 `npx hyperframes preview` 运行，然后让代理针对本地预览 URL 使用 `agent-browser`。
+
+## 快速修复
+
+| 问题 | 命令或检查 |
+| --- | --- |
+| 预览不会开始 | `npx hyperframes doctor` |
+| 端口已在使用中 | `npx hyperframes preview --port 4567` |
+| 渲染失败 | `npx hyperframes lint` 然后 `npx hyperframes validate` |
+| 需要精确的帧检查 | `npx hyperframes snapshot --at 1,2.5,5` |
+| 文本溢出到框架中 | `npx hyperframes inspect` |
+| 最终渲染速度太慢 | 尝试 `--quality draft`、减小图像大小或降低 `--fps` |
+| 需要共享可编辑项目 | `npx hyperframes publish` |
+
+<CardGroup cols={2}>
+  <Card title="提示指南" icon="wand-magic-sparkles" href="/guides/prompting">
+    如何指导人工智能代理制作更好的视频
+  </Card>
+  <Card title="时间线编辑" icon="timeline" href="/guides/timeline-editing">
+    计时、轨道和 GSAP 时间线模式
+  </Card>
+  <Card title="常见错误" icon="circle-exclamation" href="/guides/common-mistakes">
+    linter 无法捕获的陷阱
+  </Card>
+  <Card title="CLI 参考" icon="terminal" href="/packages/cli">
+    完整命令参考
+  </Card>
+</CardGroup>

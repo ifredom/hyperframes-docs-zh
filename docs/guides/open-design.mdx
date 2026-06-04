@@ -1,0 +1,175 @@
+---
+title: 开放式设计
+description: "在 Open Design（开源 BYOK Claude-Design 替代方案）中创建 HyperFrames 视频草稿，然后在任何 AI 编码智能体中进行完善。"
+---
+
+[开放设计](https://github.com/nexu-io/open-design) 是 Claude Design 的开源、本地优先替代方案。它使用 `pnpm tools-dev` 在您的笔记本电脑上运行，将 Web 层部署到 Vercel，并委托给 `PATH` 上已有的任何编码代理 CLI（Claude Code、Codex、Cursor Agent、Gemini CLI、OpenCode、Qwen、Cop​​ilot、Hermes、Kimi、Pi），或委托给任何与 OpenAI 兼容的 BYOK 端点。
+
+开放设计可生成 HyperFrames 合成的**有效初稿** — 调色板、场景内容、GSAP 入口补间、场景中活动和着色器过渡。然后，您可以下载该项目，并在任何 AI 编码智能体中通过 linting 和实时预览进行优化。
+
+## 开始使用
+
+<Steps>
+  <Step title="下载说明文件">
+    在 GitHub 上打开 [`open-design-hyperframes.md`](https://github.com/heygen-com/hyperframes/blob/main/docs/guides/open-design-hyperframes.md) 并单击下载按钮 (↓) 进行保存。
+  </Step>
+  <Step title="本地运行开放设计">
+    ```bash
+    git clone https://github.com/nexu-io/open-design.git
+    cd open-design
+    pnpm install
+    pnpm tools-dev run web
+    # open the web URL printed by tools-dev
+    ```
+  </Step>
+  <Step title="将文件放入技能中，或将其附加到聊天中">
+    **推荐：** 将 `open-design-hyperframes.md` 复制到 Open Design 存储库内的 `skills/hyperframes-handoff/SKILL.md` 。守护进程会在下一个请求时自动发现它，并将其公开为选择器中的技能。 **或者：** 开始新的聊天并直接附加文件 - Open Design 可以本地读取附件。
+  </Step>
+  <Step title="描述您的视频">
+    选择 `hyperframes-handoff` 技能（或您的活动原型技能），选择设计系统或视觉方向，然后输入简介。包括屏幕截图、品牌资产或调色板（如果有的话）。
+  </Step>
+  <Step title="将项目保存到磁盘">
+    开放设计将 `index.html`、`preview.html`、`README.md` 和 `DESIGN.md` 快照写入 `.od/projects/<id>/`。单击 **保存到磁盘** 或下载为项目 ZIP。
+  </Step>
+  <Step title="在任何 AI 编码智能体中进行优化">
+    Open Design 项目文件夹已经是一个真正的磁盘工作目录。将其交给 Claude Code、Cursor、Codex 或任何具有终端访问权限的代理：
+    ```bash
+    cd .od/projects/<id>
+    npx skills add heygen-com/hyperframes   # install skills (one-time)
+    npx hyperframes lint                     # should pass with zero errors
+    npx hyperframes preview                  # open the studio
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  **放入 `skills/`，不要粘贴到聊天中。** Open Design 的守护进程在请求时读取 `SKILL.md` 文件并自动注入辅助文件（模板、引用）。粘贴的 URL 或聊天附件是有效的，但技能路径为您提供了完整的飞行前管道（模板注入 + 5 维自我批判门）。
+</Tip>
+
+## 使用哪种设置
+
+| 表面                                | 推荐设置                                                                                                                                                            |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 开放式设计（开源）              | 将 [`open-design-hyperframes.md`](https://github.com/heygen-com/hyperframes/blob/main/docs/guides/open-design-hyperframes.md) 放入 `skills/hyperframes-handoff/SKILL.md`   |
+| 克劳德·科德                            | `npx skills add heygen-com/hyperframes`，然后使用 `/hyperframes`                                                                                                             |
+| 光标/Codex/Gemini CLI            | `npx skills add heygen-com/hyperframes`                                                                                                                                       |
+| 克劳德设计（闭源）          | 将 [`claude-design-hyperframes.md`](https://github.com/heygen-com/hyperframes/blob/main/docs/guides/claude-design-hyperframes.md) 附加到您的聊天中                          |
+
+## 它是如何运作的
+
+指令文件提供了开放设计**预有效的 HTML 骨架** - 结构规则（数据属性、时间线注册、场景可见性、预览令牌转发）已经嵌入。开放式设计填充创意工作：
+
+1. **调色板 + 版式** — 由绑定到 `:root` 的活动 `DESIGN.md` 驱动（开放设计提供 72 个开箱即用的系统，加上未命名品牌时的 5 个确定性视觉方向）
+2. **场景内容** — `.scene-content` 包装器内的文本、图像、布局
+3. **动画** — GSAP 入口补间和场景中活动
+4. **过渡** — 对大多数场景进行硬剪辑，在 2-3 个关键时刻进行着色器过渡
+
+开放设计的 [5 维自我批评](https://github.com/nexu-io/open-design/blob/main/apps/web/src/prompts/discovery.ts) 在发布之前运行，因此工件到达时是干净的，并且您的编码代理可以立即开始精炼，而无需进行结构修复。
+
+## 提示示例
+
+<CardGroup cols={1}>
+  <Card title="功能公告">
+    ```text
+    Use the hyperframes-handoff skill. I just shipped dark mode for my app.
+    Make me a 15-second Instagram reel announcing it.
+
+    - App name: Taskflow
+    - Primary color: #6C5CE7
+    - The vibe is clean, minimal, dark
+    - Key stat: "47% of users requested this"
+    ```
+  </Card>
+  <Card title="创始人推介（BYOK 使用您自己的 CLI）">
+    ```text
+    Use the hyperframes-handoff skill on Codex CLI. 25-second LinkedIn video.
+
+    Problem: Sales teams waste 3 hours/day on manual CRM updates.
+    Solution: AutoCRM — AI that logs every call, email, and meeting.
+    Traction: 200+ teams, $1.2M ARR, 18% MoM growth.
+    CTA: autocrmhq.com
+
+    Use the Linear design system. Professional but not corporate.
+    ```
+  </Card>
+  <Card title="品牌驱动（使用 72 个设计系统之一）">
+    ```text
+    Use the hyperframes-handoff skill. Design system: Stripe. 10-second reel.
+    One big number: "$4.2 billion processed in Q1 2026"
+
+    Dark background, the number animates up from zero. Subtle, confident.
+    End with logo placeholder and "stripe.com"
+    ```
+  </Card>
+  <Card title="稀疏简短（让它问）">
+    ```text
+    Use the hyperframes-handoff skill. 30-second launch video for Orbit.
+    ```
+
+    开放设计的 `RULE 1` 在发出代码之前总是以 `<question-form>` 开头，因此稀疏的摘要变成了一个简短的问题形式（表面·受众·基调·品牌·规模）而不是 AI 自由风格渲染。
+  </Card>
+</CardGroup>
+
+## 提示中应包含哪些内容
+
+Open Design 按以下可靠性顺序读取输入：**活动 DESIGN.md > 附件 > 粘贴内容 > 网络研究 > URL**。
+
+| 输入类型 | 开放式设计带来了什么 |
+| --- | --- |
+| 主动设计系统（已发货 72 个，可从选择器切换） | 完整的 9 部分规格（颜色、排版、间距、布局、组件、动作、声音、品牌、反模式）——最强来源 |
+| 屏幕截图/PDF/品牌指南 | 调色板、排版、UI 模式、语气 — 由代理本地读取 |
+| 粘贴的十六进制代码、字体、副本 | 他们所涵盖的内容具有权威性 |
+| 品牌名称（知名） | 开放设计可以 `WebFetch` 博客、媒体、维基百科 |
+| SPA URL（React/Vue 主页） | 返回近乎空的外壳——转向博客/新闻 |
+
+您的提示越具体，输出就越好。预先选择一个设计系统或视觉方向，然后描述内容。
+
+## 为什么使用开放式设计与克劳德设计
+
+| | 克劳德设计 | **开放式设计** |
+| --- | --- | --- |
+| 执照 | 关闭 | 阿帕奇-2.0 |
+| 成本 | 专业版/最高版/团队版 | BYOK（使用您自己的 CLI/API 密钥免费） |
+| 外形尺寸 | 仅限网络 (claude.ai) | Web 应用程序 + 本地守护程序（或部署到 Vercel） |
+| 代理运行时 | 仅人择（Opus 4.7） | 10 个 CLI 适配器 + 兼容 OpenAI 的 BYOK 代理 |
+| 技能 | 所有权 | 31 个基于文件的 `SKILL.md` 捆绑包，可丢弃 |
+| 设计系统 | 所有权 | 72 个已发货 `DESIGN.md` 系统 |
+| 文件系统级工作区 | ❌ | ✅ 真实`cwd`，真实`Read` / `Write` / `Bash` / `WebFetch` |
+
+如果您想要没有锁定的克劳德设计循环，开放设计也是同样的工件优先思维模型——开放、本地、BYOK。
+
+## 已知的限制
+
+- **渲染仍然在本地进行** — 开放设计生成 HTML； `npx hyperframes render` 和 HDR 编码仍然需要您的计算机上有 FFmpeg + Node 22+。
+- **窗格内预览是沙盒 iframe** - 完整的浏览器播放是可靠的；对于帧精确的擦除，在切换后使用 `npx hyperframes preview` 。
+- **着色器直通需要 WebGL** — 与 Claude Design 路径相同； Open Design 的 iframe 沙箱支持它。
+- **技能预检是守护进程端** — 如果您绕过技能选择器并将原始 HTML 粘贴到聊天中，您将失去侧文件注入和 5 维批评门。使用技能。
+
+## 移交给您的编码代理
+
+Open Design的项目文件夹是代理的`cwd`。没有“导出然后重新导入”步骤 - 针对同一目录打开 Claude Code、Cursor、Codex 或任何 AI 编码智能体：
+
+```bash
+cd .od/projects/<your-project-id>
+npx skills add heygen-com/hyperframes   # one-time setup
+npx hyperframes lint                     # verify structure
+npx hyperframes preview                  # open the studio
+```
+
+然后以与 Claude Design 路径相同的方式进行迭代：
+
+- “让场景 3 的入口更加快捷”
+- “在场景 5 的统计数据中添加计数器动画”
+- “加快节奏——场景 4 和 6 感觉太长了”
+- “将过渡 2 上的着色器更改为故障”
+
+## 后续步骤
+
+<CardGroup cols={2}>
+  <Card title="克劳德设计指南" icon="message" href="/guides/claude-design">
+    同一工作流程的闭源风格 — 当您的笔记本电脑上没有 CLI 时非常有用。
+  </Card>
+  <Card title="提示指南" icon="message" href="/guides/prompting">
+    跨 Claude Code、Claude Design、Open Design 和其他代理的 HyperFrames 的更多提示模式。
+  </Card>
+</CardGroup>

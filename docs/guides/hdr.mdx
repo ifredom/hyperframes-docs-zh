@@ -1,0 +1,196 @@
+---
+title: 高动态范围渲染
+description: "当源包含 HDR 视频或图像时，将合成渲染为 HDR10 MP4（BT.2020 PQ 或 HLG、10 位 H.265）。"
+---
+
+当您的合成引用 HDR 视频或 HDR 静态图像时，HyperFrames可以渲染为 HDR10 MP4（H.265 10 位、BT.2020）。默认情况下，会从您的媒体源中自动检测 HDR，并在不存在媒体源时回退到 SDR。
+
+<Note>
+  默认情况下，Hyperframes 会探测您的媒体并仅在存在 HDR 源时启用 HDR。即使没有 HDR 源，也可以使用 `--hdr` 强制使用 HDR，或者即使存在 HDR 源，也可以使用 `--sdr` 强制使用 SDR。
+</Note>
+
+## 快速入门
+
+<Steps>
+  <Step title="将 HDR 源添加到您的合成中">
+    Hyperframes 从源的色彩空间元数据中检测 HDR。最可靠的 HDR 来源是：
+
+    - **HDR 视频** 标记为 BT.2020，具有 PQ (`smpte2084`) 或 HLG (`arib-std-b67`) 传输
+    - **HDR 静态图像** 采用 BT.2020 PQ 编码的 16 位 PNG
+
+    有关完整详细信息，请参阅[源媒体](#source-media-requirements)。
+  </Step>
+  <Step title="正常渲染">
+    ```bash Terminal
+    npx hyperframes render --output output.mp4
+    ```
+
+    HDR 输出需要 `--format mp4`。如果 Hyperframes 检测到 HDR 源，它会自动渲染 HDR。如果您还传递 `--format mov` 或 `--format webm`，Hyperframes 会记录警告并回退到 SDR。
+  </Step>
+  <Step title="验证输出是否为 HDR">
+    使用 `ffprobe` 确认编码流携带 HDR 颜色标签和 HDR10 元数据：
+
+    ```bash Terminal
+    ffprobe -v error -show_streams output.mp4 | grep -E 'color_transfer|color_primaries|color_space'
+    ```
+
+    请参阅[验证 HDR 输出](#verifying-hdr-output) 了解要查找的内容。
+  </Step>
+</Steps>
+
+## HDR 模式的工作原理
+
+在渲染期间，制作者：
+
+<Steps>
+  <Step title="探测每个视频和图像源">
+    在每个 `<video>` 和 `<img>` 源上运行 `ffprobe` 以读取其颜色空间（原色、传递函数、矩阵）。此探测驱动默认的自动检测行为，并且仅当您使用 `--sdr` 显式强制 SDR 时才会跳过。
+  </Step>
+  <Step title="选择主流 HDR 传输">
+    如果任何源使用 PQ (`smpte2084`)，则输出使用 **PQ**。否则，如果任何源使用 HLG (`arib-std-b67`)，则输出将使用 **HLG**。如果未找到 HDR 源，渲染将保持 SDR。
+  </Step>
+  <Step title="编码为 H.265 10 位 BT.2020">
+    视频编码器切换到 `libx265` 和 `-pix_fmt yuv420p10le`、颜色标记 `colorprim=bt2020:transfer=<smpte2084|arib-std-b67>:colormatrix=bt2020nc` 和 HDR10 静态元数据（`master-display` 和 `max-cll`）。如果没有这些元数据，播放器（QuickTime、YouTube、HDR 电视）会像 SDR BT.2020 一样对流进行色调映射 — 这看起来是错误的。
+  </Step>
+  <Step title="原生合成 HDR 源，转换 SDR 叠加">
+    HDR 视频和图像通过 FFmpeg 提取为 16 位线性光像素，保留在 DOM 屏幕截图之外，并在服务器端以全位深度进行合成。 SDR DOM 覆盖（HTML 中的文本、形状、UI）在分层到顶部之前从 **sRGB** 转换为 **BT.2020**，因此颜色不会发生变化。
+  </Step>
+</Steps>
+
+## 源媒体要求
+
+### HDR视频
+
+Hyperframes 从 `ffprobe` 色彩空间元数据中识别 HDR 视频：
+
+| 指标 | 被识别为 HDR |
+|-----------|-------------------|
+| `color_primaries` 包含 `bt2020` | 是的 |
+| `color_space` 包含 `bt2020` | 是的 |
+| `color_transfer = smpte2084` (PQ) | 是的——PQ |
+| `color_transfer = arib-std-b67` (HLG) | 是的——HLG |
+| 所有其他（例如 `bt709`、`smpte170m`） | 否 — 视为特别提款权 |
+
+有效的 HDR 源是其流元数据报告 BT.2020 主色加上 PQ 或 HLG 传输的任何 MP4。HyperFrames会自动检测它：
+
+```bash Terminal
+ffprobe -v error -show_streams assets/clip.mp4 | grep color
+# color_primaries=bt2020
+# color_transfer=smpte2084
+# color_space=bt2020nc
+```
+
+### HDR 静态图像
+
+Hyperframes 支持以 **16 位 PNG** 形式交付的 HDR 静态图像，标记有 BT.2020 原色和 PQ 传输。将它们作为普通的 `<img>` 放入组合中：
+
+```html index.html
+<img class="clip" data-start="0" data-duration="3"
+     src="./assets/hdr-photo.png" />
+```
+
+启用 HDR 后，图像会被解码为 16 位线性光 RGB 并本地合成到 HDR 输出中。
+
+<Note>
+  HDR `<img>` 解码仅限于 **16 位 PNG**。 JPEG、WebP、AVIF 和 APNG 不会被识别为 HDR 源 - 它们通过正常的 SDR DOM 路径加载。对于 HDR 运动，请使用 `<video>` 元素。
+</Note>
+
+### SDR 源与 HDR 混合
+
+您可以在同一合成中自由混合 SDR 和 HDR 媒体：
+
+- **SDR 视频** 留在 DOM 屏幕截图路径中并获得上述 sRGB → BT.2020 转换
+- **HDR 视频** 以 16 位原生提取并在 SDR DOM 层下合成
+- **SDR 图像和 DOM 元素**（文本、形状、渐变、GSAP 动画）从 sRGB 转换为 BT.2020
+
+这与处理合成的管道相同，例如，HDR 无人机剪辑在带有动画文本的 SDR 下三分之一下播放。
+
+## 输出格式要求
+
+| 输出格式 | 支持 HDR |
+|---------------|---------------|
+| `mp4` | 是 — H.265 10 位 BT.2020、HDR10 元数据 |
+| `mov` | 否——退回到 SDR |
+| `webm` | 否——退回到 SDR |
+
+如果启用 HDR 并且您还传递 `--format mov` 或 `--format webm`，Hyperframes 会记录一条消息并生成等效的 SDR 渲染。没有错误 - 渲染仍然完成 - 因此请检查日志（或您的验证步骤）以确认您获得了 HDR。
+
+## 验证 HDR 输出
+
+使用 `ffprobe` 确认颜色标记和 HDR10 静态元数据都存在：
+
+```bash Terminal
+ffprobe -v error -show_streams -select_streams v:0 output.mp4 \
+  | grep -E 'codec_name|pix_fmt|color_transfer|color_primaries|color_space'
+```
+
+对于 PQ HDR10 渲染，您应该看到：
+
+```
+codec_name=hevc
+pix_fmt=yuv420p10le
+color_space=bt2020nc
+color_primaries=bt2020
+color_transfer=smpte2084
+```
+
+然后检查 HDR10 SEI/容器框：
+
+```bash Terminal
+ffprobe -v error -show_frames -read_intervals "%+#1" \
+  -show_entries frame=side_data_list output.mp4
+```
+
+您应该会看到 **掌握显示元数据** 和 **内容亮度元数据** 的条目。如果没有它们，支持 HDR 的播放器会将文件视为 SDR BT.2020，并且颜色在 HDR 显示器上看起来会褪色或错误。
+
+对于 HLG 渲染，唯一的区别是 `color_transfer=arib-std-b67` — 其余检查是相同的。
+
+## Docker 渲染
+
+Docker 使用与本地渲染相同的自动检测逻辑，因此您可以从容器化渲染器生成 HDR10 MP4 输出，而无需额外的标志：
+
+```bash Terminal
+npx hyperframes render --docker --output output.mp4
+```
+
+容器运行与本地渲染器相同的探针→复合→编码管道。使用[验证 HDR 输出](#verifying-hdr-output) 中描述的相同 `ffprobe` 检查来验证输出。
+
+<Note>
+  Docker HDR 渲染当前在 SDR DOM 层的 **CPU 端** 运行（容器回退到软件 WebGL，因为默认情况下未配置 GPU 直通）。因此，帧捕获比本地 Chrome 慢 - 在关闭 `--quiet` 的情况下测量您自己的构图，并在调整 CI 运行程序的大小之前比较挂钟时间。编码的 HDR10 元数据和像素数据与本地渲染相同。
+</Note>
+
+## 局限性
+
+- **仅限 MP4** — 带有 `--format mov` 或 `--format webm` 的 HDR 输出回退到 SDR
+- **HDR 图像：仅限 16 位 PNG** — 其他格式（JPEG、WebP、AVIF、APNG）不会解码为 HDR，并且会通过 SDR DOM 路径
+- **仅限 H.265 — H.264 被剥离** — 使用 `codec: "h264"` 和 `hdr: { transfer }` 调用编码器被拒绝；编码器记录警告，删除 `hdr`，并将输出标记为 SDR/BT.709。 `libx264` 无法编码 HDR，因此替代方案是“半 HDR”文件（BT.2020 容器标签，但比特流中的 BT.709 VUI 块），这会让支持 HDR 的玩家感到困惑。
+- **GPU H.265 发出颜色标签，但没有静态母带元数据** — 带有 HDR（nvenc、videotoolbox、amf、qsv、vaapi）的 `useGpu: true` 使用 BT.2020 + 正确的传输（smpte2084 / arib-std-b67）标记流，但**不**嵌入 `master-display` 或 `max-cll` SEI。 ffmpeg 不会让这些标志通过硬件编码器。输出适合预览和创作，但不适用于支持 HDR10 的交付（Apple TV、YouTube、Netflix）。对于符合规范的 HDR10 制作输出，请保留 `useGpu: false`，以便 SW `libx265` 路径嵌入母带元数据。
+- **播放器支持** — [`<hyperframes-player>`](/packages/player) Web 组件在浏览器中播放编码的 MP4，并继承主机浏览器提供的任何 HDR 支持；它没有实现自己的 HDR 管道
+- **Headed Chrome HDR DOM 捕获** — 该引擎提供了一个单独的基于 WebGPU 的捕获路径，用于将 CSS 动画 DOM 直接渲染到 HDR 中（`initHdrReadback`、`launchHdrBrowser`）。它需要带有 `--enable-unsafe-webgpu` 的 Chrome 浏览器，并且默认渲染管道不使用它。如果您正在构建自定义集成，请参阅 [引擎：HDR](/packages/engine#hdr-apis)。
+
+## 常见陷阱
+
+| 症状 | 可能的原因 |
+|---------|--------------|
+| 输出看起来与 SDR 相同 | 源媒体是 SDR，或使用 `--sdr` 强制使用 SDR。在您的输入上运行 `ffprobe` 并检查渲染日志 |
+| 输出是“某种 HDR”，但 YouTube/QuickTime 上的色调映射错误 | 编码流上缺少 HDR10 静态元数据。使用上面的 ffprobe 片段进行验证 |
+| Docker渲染比本地慢很多 | 预期 — 容器回退到软件 WebGL 来捕获 SDR DOM。像素输出相同 |
+| 使用`--format webm`并获得SDR | 预期 — HDR 输出仅为 MP4 |
+| HDR `<img>` 看起来 SDR / 褪色 | 源不是 16 位 PNG。重新导出为 16 位 PNG (BT.2020 PQ) 或改用 `<video>` 元素 |
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="渲染" icon="film" href="/guides/rendering">
+    本地与 Docker、质量预设、工作人员
+  </Card>
+  <Card title="命令行界面" icon="terminal" href="/packages/cli">
+    完整的 `render` 命令参考，包括 HDR 自动检测、`--hdr` 和 `--sdr`
+  </Card>
+  <Card title="引擎：HDR API" icon="gear" href="/packages/engine#hdr-apis">
+    从 `@hyperframes/engine` 导出的公共 HDR 实用程序
+  </Card>
+  <Card title="常见错误" icon="triangle-exclamation" href="/guides/common-mistakes">
+    影响渲染输出的陷阱
+  </Card>
+</CardGroup>

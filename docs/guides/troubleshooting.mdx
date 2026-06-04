@@ -1,0 +1,173 @@
+---
+title: 故障排除
+description: "常见超框架问题的解决方案。"
+---
+
+如果您的问题涉及特定的编码错误（动画不起作用、视频提前中断），请先参阅[常见错误](/guides/common-mistakes)。本页涵盖环境、工具和渲染问题。
+
+<AccordionGroup>
+  <Accordion title='"No composition found"'>
+    您的目录需要一个具有有效[组合](/concepts/compositions)的`index.html`。根元素必须具有 [`data-composition-id`](/concepts/data-attributes#composition-attributes) 属性。
+
+    **修复：** 运行 `npx hyperframes init` 从[示例](/examples) 创建组合，或验证您的 `index.html` 具有正确的结构：
+
+    ```html index.html
+    <div id="root" data-composition-id="my-video"
+         data-start="0" data-width="1920" data-height="1080">
+      <!-- elements here -->
+    </div>
+    ```
+  </Accordion>
+
+  <Accordion title='"FFmpeg not found"'>
+    本地[渲染](/guides/rendering) 需要在您的系统上安装 FFmpeg。为您的平台安装它：
+
+    <CodeGroup>
+    ```bash macOS
+    brew install ffmpeg
+    ```
+
+    ```bash Ubuntu/Debian
+    sudo apt install ffmpeg
+    ```
+
+    ```bash Windows
+    # Download from https://ffmpeg.org/download.html
+    # Add the bin directory to your PATH
+    ```
+
+    ```bash Verify installation
+    ffmpeg -version
+    ```
+    </CodeGroup>
+
+    安装后，运行 `npx hyperframes doctor` 来验证 CLI 是否可以找到它。
+
+    <Tip>
+      如果您无法安装 FFmpeg，请改用 [Docker 模式](/guides/rendering) — 它将 FFmpeg 捆绑在容器内：`npx hyperframes render --docker --output output.mp4`
+    </Tip>
+  </Accordion>
+
+  <Accordion title="棉绒错误">
+    运行 `npx hyperframes lint` 以检查常见的结构问题（请参阅 [CLI: lint](/packages/cli#lint)）：
+
+    | 错误 | 意义 |
+    |-------|---------|
+    | 缺少 `data-composition-id` | 根元素需要此属性。请参阅[组合物](/concepts/compositions)。 |
+    | 缺少 `class="clip"` | 定时可见元素需要此类。请参阅[数据属性](/concepts/data-attributes#element-visibility)。 |
+    | 重叠的时间线 | 同一 [`data-track-index`](/concepts/data-attributes#timing-attributes) 上的剪辑不能在时间上重叠。 |
+    | 取消静音的视频元素 | 视频元素应为 `muted`，除非设置了 `data-has-audio="true"`。 |
+    | 已弃用的属性名称 | `data-layer` 和 `data-end` 已被替换。检查 [HTML 架构参考](/reference/html-schema)。 |
+  </Accordion>
+
+  <Accordion title="预览未更新">
+    确保您正在编辑项目目录中的 `index.html` 。 [预览服务器](/packages/cli#preview) 监视文件更改和自动重新加载。
+
+    如果更改仍未出现：
+
+    1. 检查终端是否有来自预览服务器的错误
+    2. 停止并重新启动 `npx hyperframes preview`
+    3. 硬刷新浏览器：**Ctrl+Shift+R** (Windows/Linux) 或 **Cmd+Shift+R** (macOS)
+    4. 如果 CSS 更改未反映出来，请清除浏览器缓存
+  </Accordion>
+
+  <Accordion title="预览卡顿或以低帧速率播放">
+    **症状：** 预览播放出现卡顿或跳帧，但渲染的 mp4 看起来不错。
+
+    **原因：** 各个帧的绘制时间超过 16-33 毫秒。渲染会隐藏这一点（它一次捕获一帧），而预览则不会。
+
+    **常见的罪魁祸首，从最常见到最不常见：**
+
+    - 堆叠 `backdrop-filter: blur()` 层，尤其是在半径超过 32px 的情况下
+    - 源图像以极高分辨率（4K 以上）显示在小区域中
+    - 大元素上的 `filter: blur()` 或 `filter: drop-shadow()`
+    - 许多带有 `box-shadow` 或 `text-shadow` 的元素也具有动画效果
+
+    **首先要检查：** 口吃是仅在特定场景中发生，还是在整个场景中发生？特定于场景的卡顿通常指向一个在该场景中变得可见的元素，通常是模糊叠加。
+
+    **如何诊断：** 打开 Chrome DevTools，切换到“性能”选项卡，记录几秒钟的播放，然后查找标记为“复合层”或“绘制”的长任务。有关完整演练，请参阅[性能：测量慢速合成](/guides/performance#measuring-a-slow-composition)。
+
+    **临时解决方法：** 渲染为 mp4 并观察输出。无论每帧成本如何，渲染都是准确的。
+
+    ```bash Terminal
+    npx hyperframes render --quality draft --output preview.mp4
+    ```
+
+    有关昂贵的 CSS 模式以及如何修复它们的完整指南，请参阅 [性能](/guides/performance)。
+  </Accordion>
+
+  <Accordion title="渲染看起来与预览不同">
+    使用 `--docker` 模式进行[确定性输出](/concepts/determinism)。本地渲染可能会有所不同，原因如下：
+
+    - **字体可用性** — 不同平台上的不同字体会导致文本重排
+    - **Chrome 版本** — 本地 Chromium 与 Docker 的固定版本可能呈现略有不同
+    - **系统特定渲染** — GPU 合成、子像素抗锯齿等。
+
+    ```bash Terminal
+    npx hyperframes render --docker --output output.mp4
+    ```
+
+    有关在本地渲染和 Docker 渲染之间进行选择的指南，请参阅[渲染：何时使用每种模式](/guides/rendering#when-to-use-each-mode)。
+  </Accordion>
+
+  <Accordion title="Docker模式启动失败">
+    验证 Docker 已安装且守护进程正在运行：
+
+    ```bash Terminal
+    docker info
+    ```
+
+    常见问题：
+    - **Docker 未运行：** 启动 Docker Desktop 或 Docker 守护进程
+    - **权限被拒绝：** 将您的用户添加到 `docker` 组 (`sudo usermod -aG docker $USER`) 并重新启动 shell
+    - **图片拉取失败：** 检查您的互联网连接；第一个渲染下载 Hyperframes Docker 镜像
+  </Accordion>
+
+  <Accordion title="渲染速度很慢">
+    尝试以下优化：
+
+    1. 在开发过程中使用 `--quality draft` 可以加快编码速度
+    2. 运行 `npx hyperframes benchmark` 来查找系统的最佳工作人员数量
+    3. 自动启用本地 Chrome/WebGL GPU 捕获；如果进行故障排除，请与 `--no-browser-gpu` 进行比较
+    4. 使用 `--gpu` 进行硬件加速编码（仅限本地模式）
+    5. 如果不需要 30fps，则将 `--fps` 减少到 24
+    6. 检查您的构图是否没有不必要的元素或过于复杂的动画
+
+    有关所有可用标志，请参阅[渲染：选项](/guides/rendering#options)。
+  </Accordion>
+</AccordionGroup>
+
+## 系统诊断
+
+运行 `npx hyperframes doctor` 检查您的环境：
+
+```bash Terminal
+npx hyperframes doctor
+```
+
+这会检查 Node.js 版本、FFmpeg 可用性、Docker 状态和其他要求。如果 `doctor` 报告问题，请在渲染之前解决这些问题。
+
+## 还卡住了吗？
+
+如果以上均不能解决您的问题：
+
+1. 运行 `npx hyperframes info` 收集系统和项目详细信息
+2. 检查 [GitHub 问题](https://github.com/heygen-com/hyperframes/issues) 中的类似报告
+3. 使用 `npx hyperframes info` 的输出和重现步骤打开一个新问题
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="常见错误" icon="triangle-exclamation" href="/guides/common-mistakes">
+    破坏组合的编码陷阱
+  </Card>
+  <Card title="渲染" icon="film" href="/guides/rendering">
+    渲染模式、选项和提示
+  </Card>
+  <Card title="CLI 参考" icon="terminal" href="/packages/cli">
+    CLI 命令的完整列表
+  </Card>
+  <Card title="贡献" icon="code-branch" href="/contributing">
+    报告错误并贡献修复
+  </Card>
+</CardGroup>

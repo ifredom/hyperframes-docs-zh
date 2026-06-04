@@ -1,0 +1,424 @@
+---
+title: 删除背景（透明视频）
+description: "从视频或图像中删除背景并将其作为透明叠加层放入任何合成中。"
+---
+
+背景去除（在视觉特效中也称为“抠图”）将前景主体（通常是人）与其背景分开。输出是带有 Alpha 通道的视频：背景所在的位置完全透明，主体所在的位置不透明。将其作为 `<video>` 标签放入任何 HyperFrames 合成中，主题就会漂浮在您放在其后面的任何内容上。
+
+CLI 附带一个在本地运行的内置 `remove-background` 命令 - 没有 API 密钥，没有云上传，没有绿屏。
+
+## 快速入门
+
+<Steps>
+  <Step title="验证 ffmpeg 是否已安装">
+    管道需要 `ffmpeg` 和 `ffprobe` 进行解码+编码。大多数系统已经具备它们；如果不：
+
+    ```bash Terminal
+    # macOS
+    brew install ffmpeg
+
+    # Ubuntu / Debian
+    sudo apt install ffmpeg
+    ```
+
+    使用 `npx hyperframes doctor` 确认 — 两者都应该是绿色的。
+  </Step>
+  <Step title="从视频中删除背景">
+    ```bash Terminal
+    npx hyperframes remove-background subject.mp4 -o transparent.webm
+    ```
+
+    第一次运行时，CLI 将约 168 MB 的模型权重下载到 `~/.cache/hyperframes/background-removal/models/`。后续运行将重用缓存。
+
+    输出：
+
+    ```
+    ◇  Removed background from 240 frames in 38.4s (6.3 fps, CoreML) → ./transparent.webm
+    ```
+  </Step>
+  <Step title="将其放入合成中">
+    输出是标准的 VP9-with-alpha WebM。 Chrome 的 `<video>` 元素本地解码 alpha 平面 - 不需要特殊的播放器：
+
+    ```html composition.html
+    <div class="scene">
+      <!-- background layer -->
+      <img src="city.jpg" class="bg" />
+
+      <!-- transparent subject floats on top -->
+      <video src="transparent.webm" autoplay muted loop playsinline></video>
+    </div>
+    ```
+
+    使用通常的 `hyperframes render` 渲染合成。
+  </Step>
+</Steps>
+
+## 它是如何运作的
+
+该管道运行四个阶段，全部在本地：
+
+```
+ffmpeg decode  →  u²-net_human_seg inference  →  alpha composite  →  ffmpeg encode
+   (raw RGB)         (320×320 mask, then upsampled)                    (VP9-alpha)
+```
+
+该模型是 **u²-net_ human_seg** （MIT 许可证，~168 MB ONNX）。它通过 `onnxruntime-node` 与您计算机上最可用的执行提供程序一起运行：Apple Silicon 上的 CoreML、NVIDIA 上的 CUDA、CPU。
+
+输出使用 Chrome 的 `<video>` 元素需要解码 alpha 的确切 ffmpeg 标记进行编码 — `-pix_fmt yuva420p` 加上 `alpha_mode=1` 元数据标记。如果这些错误的话，alpha 平面就会被浏览器默默地丢弃。
+
+## 输出格式
+
+| 扩大 | 编解码器 | 何时使用 | 尺寸（4s @ 1080p） |
+|-----------|-------|-------------|-------------------|
+| `.webm`（默认） | VP9 与阿尔法 | 放入 `<video>` 进行 HTML5 原生透明播放 | 〜1MB |
+| `.mov` | 带 Alpha 的 ProRes 4444 | 在 Premiere / Resolve / Final Cut 中进行往返编辑 | 〜50MB |
+| `.png` | 带阿尔法的PNG | 单图剪切（仅当输入也是单图时） | 各不相同 |
+
+```bash Terminal
+npx hyperframes remove-background subject.mp4 -o transparent.webm        # web playback
+npx hyperframes remove-background subject.mp4 -o transparent.mov         # editing
+npx hyperframes remove-background portrait.jpg -o cutout.png       # still image
+```
+
+## 分层分离：将切口和背景板一起发射
+
+传递 `--background-output` （别名 `-b`）以在剪切旁边写入*第二个*透明视频。相同的 RGB 源，alpha 是*逆*蒙版 - 周围环境不透明，主体所在透明。结果是在一次推理过程中实现干净的两层分离：
+
+```bash Terminal
+npx hyperframes remove-background subject.mp4 \
+  -o subject.webm \
+  --background-output plate.webm
+```
+
+| 输出 | 阿尔法 | 使用它作为 |
+| ------ | ----- | --------- |
+| `subject.webm` | 遮罩 — 主体不透明 | 前景层（堆栈顶部） |
+| `plate.webm` | `255 − mask` — 主题区域透明 | 背景层；在此和 `subject.webm` 之间**放置任何你想要的东西**在拍摄对象的轮廓下方** |
+
+两个编码器共享源 W/H/fps 和您的 `--quality` 预设，因此各层是像素对齐的。编码成本大约翻倍；分割成本不变。
+
+<Tip>
+**这是一个打孔的板，而不是修复的干净板。** `plate.webm` 中的主题区域是完全透明的 - 您必须在其下方合成一些不透明的东西（图形、模糊的副本、不同的场景）来填充孔。如果您需要主题所在的实际填充背景，请使用视频 inpainter（LaMa、ProPainter、RunwayML Inpaint） - `remove-background` 不是合适的工具。
+</Tip>
+
+### 孔切板与干净板——差异何时重要？
+
+**打孔板**保留了原始环境并使拍摄对象区域透明。 **干净的板**用重建的背景填充主题区域 - 由单独的修复模型生成。将每个单独显示为黑色：
+
+| | 孔板切割（此命令） | 洁净板（修补） |
+| --- | --- | --- |
+| 主题区域 | 透明剪影 | 重建背景像素 |
+| 你独自看到的 | 一个人形的洞 | 一个空房间 |
+| 成本 | 一次推理过程，一次额外的 ffmpeg 编码 | 第二个模型（LaMa、ProPainter、E2FGVI） |
+| 工具 | `remove-background --background-output` | 在此 CLI 之外 |
+
+这条线是：**是否有任何东西需要通过主体的轮廓（主体曾经所在的位置）可见？**
+
+| 使用案例 | 你需要什么 |
+| --- | --- |
+| 文本/图形位于切口和板之间*（上面的示例） | **打孔** — 图形填充孔。 |
+| 将主题合成到不相关的场景上 | 两者都不。只需使用 `subject.webm` 即可；盘子是无关紧要的。 |
+| 将“无人的房间”作为真实的背景 | **干净的板** — 打孔板会显示出透明的空隙。 |
+| 用不同的主题替换此人（重新定位） | **干净的板** - 新的主题需要其下方的真实像素。 |
+| 视觉特效动态观察/“从这个镜头中删除额外的内容” | **干净的板** - 规范的修复用例。 |
+
+如果不透明的东西总是覆盖轮廓，打孔就足够了，而且比运行修补程序便宜约 1000 倍。
+
+### 两层组合模式
+
+两层模式在功能上是 [text-behind-subject](#text-behind-subject-the-recommulated-layout) 的替代品，不需要项目中的原始 `presenter.mp4` — 板将其替换为底层：
+
+```html
+<!-- z=1 inverse-alpha plate fills everything except the subject's silhouette -->
+<video src="plate.webm" data-start="0" data-duration="6" data-track-index="0" muted playsinline></video>
+
+<!-- z=2 anything you want occluded by the subject lives here -->
+<h1 style="z-index:2; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);">
+  MAKE IT IN HYPERFRAMES
+</h1>
+
+<!-- z=3 the cutout puts the subject back on top -->
+<div class="cutout-wrap" style="position:absolute;inset:0;z-index:3">
+  <video src="subject.webm" data-start="0" data-duration="6" data-track-index="1" muted playsinline></video>
+</div>
+```
+
+约束：该标志需要视频输入和 `.webm` 或 `.mov` 用于两个输出。它对于图像输入无效（无需进行时间配对），并且不接受 `.png` 板。
+
+## 表现
+
+来自 [matting eval](https://www.heygenverse.com/a/0dd5a431-1832-4858-862d-de7fb7d02654) 的真实世界数字，在 4 秒 1080p 剪辑上运行 u²-net_ human_seg：
+
+| 平台 | 提供者 | 毫秒/帧 | 30 秒剪辑 |
+|----------|----------|----------|----------------|
+| 苹果芯片（M2 Pro / M3 / M4） | 核心机器学习 | ~263 | 约 2 分钟 |
+| NVIDIA GPU（T4、A10、RTX） | CUDA | ~80–150 | ~30–60 秒 |
+| Linux x86 | 中央处理器 | ~1100 | 约 16 分钟 |
+| macOS 英特尔 | 中央处理器 | ~900 | 约 13 分钟 |
+
+抠图是离线预处理——每个资产运行一次并重复使用输出。仅使用 CPU 速度较慢，但​​始终有效；如果您重复使用同一主题剪辑，请在更快的计算机上运行一次，然后将透明输出签入您的项目中。
+
+## 明确选择设备
+
+`--device auto` 是默认值，几乎适合每个人。该标志存在两种情况：
+
+- **当您想让 GPU 自由用于其他工作或正在调试特定于 EP 的问题时，强制将 CPU 置于 GPU 盒上**：
+
+  ```bash Terminal
+  npx hyperframes remove-background subject.mp4 -o transparent.webm --device cpu
+  ```
+
+- **通过设置 `HYPERFRAMES_CUDA=1` 并提供支持 GPU 的 `onnxruntime-node` 构建来选择加入 CUDA（捆绑构建仅是 CPU + CoreML，以便为 99% 没有 GPU 的用户保持较小的安装量）：
+
+  ```bash Terminal
+  HYPERFRAMES_CUDA=1 npx hyperframes remove-background subject.mp4 -o transparent.webm --device cuda
+  ```
+
+运行 `npx hyperframes remove-background --info` 查看您的计算机上检测到的提供程序以及 `auto` 会选择哪一个。
+
+## 在合成中使用透明视频
+
+透明 WebM 的行为与任何其他视频元素一样。您最常使用的两种模式：
+
+**主题位于背景图像上：**
+
+```html
+<div style="position: relative; width: 1920px; height: 1080px;">
+  <img src="background.jpg" style="position: absolute; inset: 0;" />
+  <video
+    src="transparent.webm"
+    autoplay
+    muted
+    loop
+    playsinline
+    style="position: absolute; right: 80px; bottom: 0; height: 90%;"
+  ></video>
+</div>
+```
+
+**HyperFrames场景的主题：**
+
+```html
+<!-- scene contents (text, animations, etc.) -->
+<div class="title-card">Welcome</div>
+
+<!-- subject layered on top -->
+<video src="transparent.webm" autoplay muted loop playsinline class="subject"></video>
+```
+
+剪切图继承了合成的帧速率和时间线 - 它在场景持续时间内播放一次，因此请尽可能将源剪辑长度与场景长度相匹配。如果场景比剪辑长，则 `loop` 会处理它。
+
+<Tip>
+  当渲染包含 `<video>` 元素的合成时，渲染器通过 ffmpeg 在内部读取源。透明 WebM 被解码并保留 alpha 平面。
+</Tip>
+
+## 合成模式和陷阱
+
+剪切 webm 是源 mp4 RGB 的 **重新编码副本** - 物质管道将源解码为原始 RGB，运行分段，并使用 alpha 重新编码为 VP9。这个选择所产生的后果取决于你做出的选择。
+
+### 三种模式
+
+| 图案 | 剪纸后面 | 结果 |
+|---|---|---|
+| **剪切不同的场景** *（最常见）* | 静态图像、渐变、动画背景或不相关的素材 | 干净的。剪纸是主题的唯一来源——没有重影，没有边缘光晕。使用任何 `--quality`。 |
+| **在其自己的源 mp4 上剪切** *（主题后面的文本，带覆盖的头部说话）* | 生成剪切图的相同 mp4 | 同一个人的两个 RGB 源。默认情况下 `--quality balanced` (crf 18)，加倍几乎不可见；在 `--quality fast` (crf 30) 处，您会看到轮廓上有轻微的颜色偏移/软边缘。使用 `--quality best` (crf 12) 进行英雄射击。 |
+| **同一主题的不同镜头的剪切** | 同一个人的另一个镜头 | 看起来就像两个重叠的人。避免——重新拍摄或重新切断源。 |
+
+### Text-behind-subject：推荐的布局
+
+将标题放在演示者“后面”，以便他们的轮廓遮挡文本：
+
+```html
+<!-- z=1 base mp4: full lobby + presenter, plays the whole scene -->
+<video
+  id="cf-base"
+  data-start="0" data-duration="6" data-media-start="0" data-track-index="0"
+  src="presenter.mp4"
+  muted playsinline
+></video>
+
+<!-- z=2 headline -->
+<h1 id="cf-headline" style="position:absolute;top:50%;left:50%;
+     transform:translate(-50%,-50%); z-index:2;
+     color:#fff; text-shadow:0 6px 32px rgba(0,0,0,.55);
+     clip-path:inset(0 0 100% 0); font-size:220px; font-weight:900;">
+  MAKE IT IN HYPERFRAMES
+</h1>
+
+<!-- z=3 cutout: same source, alpha around presenter, hidden until the cut.
+     The wrapper carries the opacity, NOT the <video> itself. -->
+<div class="cutout-wrap" style="position:absolute;inset:0;z-index:3;opacity:0">
+  <video
+    id="cf-cutout"
+    data-start="0" data-duration="6" data-media-start="0" data-track-index="1"
+    src="presenter.webm"
+    muted playsinline
+  ></video>
+</div>
+```
+
+```js
+const tl = gsap.timeline({ paused: true });
+const CUT = 3.3;
+
+// Reveal the headline early
+tl.to("#cf-headline", { clipPath: "inset(0 0 0% 0)", duration: 0.6, ease: "expo.out" }, 0.25);
+
+// At the cut, flip the cutout wrapper visible — silhouette punches through the headline
+tl.set(".cutout-wrap", { opacity: 1 }, CUT);
+
+// Sentinel: extend timeline to the composition's full duration so the renderer
+// doesn't bail past the last meaningful tween.
+tl.set({}, {}, 6);
+```
+
+### 两条不明显的规则
+
+**1.将剪切视频包装在非定时 `<div>` 中并对包装而不是视频进行动画处理。**
+
+该框架在任何具有 `data-start`/`data-duration` 的元素处于“活动”状态时强制使用 `opacity: 1` — 这就是它控制剪辑可见性的方式。视频元素上的 CSS `opacity: 0` 会被框架的剪辑生命周期悄悄覆盖，因此视频元素上的不透明度补间不会执行任何操作。将视频包装在没有 `data-*` 属性的 `<div>` 中；包装器完全归您的 CSS/GSAP 所有。
+
+**2.两个视频均从 `data-start="0"` 开始，并从 t=0 开始同步解码。**
+
+“后期安装”切口（`data-start="3.3"` 以匹配切口）很诱人。不要这样做 — Chrome 在安装时会进行搜索 + 解码器预热，这可能会在剪辑时刻从基础 mp4 上降落一帧。两个视频都是从 t=0 开始安装的，并且剪切图的包装器是不透明动画的，两个解码器都以相同的方式前进并保持帧精确度。
+
+### 质量预设和颜色匹配
+
+当剪切图叠加在其自己的源 mp4 上时，编码器的 CRF 直接影响边缘处加倍的可见程度：
+
+| `--quality` | 病例报告表 | 文件大小（12s @ 1080p） | 何时使用 |
+|---|---|---|---|
+| `fast` | 30 | 〜2MB | 剪切图位于不相关的背景上，文件大小很重要 |
+| `balanced` *（默认）* | 18 | 〜6MB | 推荐用于主题后面的文本和覆盖在源上的任何图案 |
+| `best` | 12 | 〜12MB | 英雄镜头、大师镜头或您将在下游重新编码的任何内容 |
+
+编码器还写入 BT.709 + 有限范围的颜色元数据，因此 Chrome 的 YUV→RGB 管道与源 mp4 相匹配。如果没有这些标签，即使在无损质量下，剪切图的渲染也会与底层 mp4 略有不同（可见红色/皮肤变化）。
+
+## u²-net_ human_seg 的用途和用途不是什么
+
+该模型专为**肖像/人体抠图**而构建。它在以下情况下表现出色：
+
+- ✅ 拍摄对象是一个人，头肩或全身
+- ✅ 取景相当稳定（不是广角手持拍摄）
+- ✅ 背景与主体形成对比
+
+它在以下方面陷入困境或失败：
+
+- ❌ 非人类主体（产品、动物、物体）。该模型将返回一个大部分为空的掩模。
+- ❌ 在繁忙的背景上有非常精细的头发细节。 320×320 推理分辨率意味着发尖会变得柔和——对于大多数用例来说都很好，但合成人员注意到了。
+- ❌ 帧到帧的时间一致性。每帧都是独立处理的，因此带有移动主体的静态背景可以显示出微妙的边缘闪烁。对于大多数网络播放来说，这是不可见的；对于高端视觉特效来说，这可能很重要。
+- ❌ 直播或实时捕捉。该管道仅限批处理。
+
+如果您的用例符合其中之一，请参阅下面的替代方案。
+
+## 替代方案 - 当内置命令不是正确的工具时
+
+CLI 特意提供了一种模型** - 该模型已获得 MIT 许可，可以在任何地方运行，并为人物/肖像视频生成生产质量的输出。下面的列表列出了与 HyperFrames 自然搭配的**免费开源工具**。每个条目都指出了实际的问题——许可证、安装工作、硬件需求——因此您可以根据自己的情况选择合适的条目。完整的基准测试位于 [matting eval](https://www.heygenverse.com/a/0dd5a431-1832-4858-862d-de7fb7d02654) 中。
+
+### 免费、开源 CLI 和库
+
+这些都在本地运行，没有帐户，没有上传，没有水印。
+
+| 工具 | 何时使用它 | 抓住 |
+|------|----------------|-------|
+| [`rembg`](https://github.com/danielgatis/rembg)（Python，麻省理工学院） | 您需要不同的主题类型 - `isnet-general-use` 用于对象/动物/产品，`birefnet-portrait` 用于头发的质量上限，`silueta` 用于约 40 MB 的微小占用空间。与我们的默认型号相同的系列，更多种类。 | 需要 Python + `pip install rembg`。某些捆绑模型 (`birefnet-*`) 需要 ~4 GB RAM 并且仅支持 CPU |
+| [BiRefNet](https://github.com/ZhengPeng7/BiRefNet)（PyTorch，麻省理工学院） | 提供最高保真度的肖像遮罩 — 头发边缘明显比 u²-net 更好 | 重（约 4 GB 推理 RAM），CPU 速度慢，在评估时在 Apple CoreML 上损坏 |
+| [强大的视频抠图 (RVM)](https://github.com/PeterL1n/RobustVideoMatting) (PyTorch, **GPL-3.0**) | 唯一广泛使用的内置**时间一致性**的模型 - 移动主体上没有边缘闪烁。当您安装长的说话头夹并且框架到框架的稳定性很重要时，这是最佳选择 | GPL-3.0 许可证与大多数商业/专有代码库不兼容。使用前请阅读您的存储库的许可证 |
+| [背景去除器](https://github.com/nadermx/backgroundremover)（Python，麻省理工学院） | u²-net 的简单 `pip install` 包装器；如果您想要 Python API 而不是我们的 Node CLI，那就太好了 | 与我们的产品系列相同，没有质量差异 - 选择适合您的堆栈的产品 |
+| [ComfyUI](https://github.com/comfyanonymous/ComfyUI)（开源，GPL-3.0 核心） | 自定义工作流程：链接分割模型 + alpha 细化 + 时间平滑。处理棘手案件的正确工具（多个主题、相似背景下的头发、体育镜头） | 涉及设置（Python、模型、节点图）。值得重复专业工作 |
+
+在外部运行其中任何一个之后，使用以下命令将输出编码为与 HyperFrames 兼容的透明 WebM：
+
+```bash Terminal
+ffmpeg -i frames-%04d.png -c:v libvpx-vp9 \
+  -pix_fmt yuva420p \
+  -metadata:s:v:0 alpha_mode=1 \
+  -auto-alt-ref 0 -b:v 0 -crf 30 \
+  transparent.webm
+```
+
+### 免费桌面/GUI 工具
+
+| 工具 | 何时使用它 | 抓住 |
+|------|----------------|-------|
+| [达芬奇决心 — 魔法面具](https://www.blackmagicdesign.com/products/davinciresolve) | 您已经在 Resolve 中进行编辑，想要一个带有手动细化功能的基于画笔的 UI，并且需要将 Alpha 往返到更大的编辑中 | macOS / Windows / Linux 桌面安装。免费套餐包括 Magic Mask；付费 Studio 版本在某些功能上解锁了更高的分辨率 |
+| [Backgroundremover.app](https://backgroundremover.app)（网络） | 一次性图片剪切，无需注册，无水印 | 仅单个图像，而不是视频。托管免费层，但底层工具是相同的 `rembg` 模型系列 |
+| [PhotoRoom 背景去除器](https://www.photoroom.com/tools/background-remover)（网络） | 快速的一次性图像、精美的 UI、无需注册 | 仅单张图像，电子商务调整模型 |
+
+### Web SaaS 工具（免费套餐，带字符串）
+
+| 工具 | 何时使用它 | 抓住 |
+|------|----------------|-------|
+| [unscreen.com](https://www.unscreen.com) | 快速一次性视频，无需安装，拖放 | **免费套餐带有水印并限制在短片中**（~10 秒预览）。付费删除了两者。由remove.bg背后的团队运行 |
+| [RunwayML — 绿屏](https://runwayml.com) | 精美的用户界面，具有画笔细化和时间感知跟踪功能；最接近专业轮转的 SaaS | 存在免费套餐，但有信用限制；认真使用就是订阅 |
+| [Kapwing — 背景去除剂](https://www.kapwing.com/tools/remove-video-background) | 基于浏览器，与视频编辑器集成 | 免费套餐带有水印；付费删除它 |
+
+### 如何选择
+
+- **人物/肖像视频、网络播放、MIT-clean** → 使用内置的 `hyperframes remove-background` （这就是它的调整目的）。
+- **非人类主体**（产品、动物、物体）→ `rembg` 和 `isnet-general-use`。
+- **最高肖像质量，尤其是头发** → 通过 Python `BiRefNet`。
+- **长视频，边缘闪烁可见**，GPL 可以 → `RVM`。
+- **一次性营销剪辑，无需安装** → DaVinci Resolve（免费）用于视频，Backgroundremover.app 用于静态图像。
+- **现成模型无法处理的特殊情况** → ComfyUI 具有自定义图表。
+
+## 故障排除
+
+### 模型下载失败或挂起
+
+权重位于 GitHub 版本上（rembg 的 `v0.0.0` 版本，约 168 MB）。如果您的网络阻止 GitHub 或下载中断：
+
+```bash Terminal
+# Manually download and drop into the cache
+mkdir -p ~/.cache/hyperframes/background-removal/models
+curl -L -o ~/.cache/hyperframes/background-removal/models/u2net_human_seg.onnx \
+  https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net_human_seg.onnx
+```
+
+随后的 `remove-background` 运行将跳过下载并使用本地副本。
+
+### “需要 ffmpeg 和 ffprobe”
+
+管道向 ffmpeg 进行解码 + 编码。在 macOS 上通过 `brew install ffmpeg` 安装，在 Debian/Ubuntu 上通过 `sudo apt install ffmpeg` 安装。使用 `npx hyperframes doctor` 进行验证。
+
+### 输出的 WebM 在浏览器中看起来完全不透明
+
+当 WebM 使用 `alpha_mode=1` 元数据标记编码为 `yuva420p` 时，Chrome 仅读取 alpha 平面。 CLI 设置两者。如果您自己重新编码输出（例如使用另一个 ffmpeg 调用），请保留这些标志：
+
+```bash Terminal
+ffmpeg -i in.webm -c:v libvpx-vp9 \
+  -pix_fmt yuva420p \
+  -metadata:s:v:0 alpha_mode=1 \
+  -auto-alt-ref 0 \
+  out.webm
+```
+
+要验证 WebM 是否具有 Alpha，请提取第一帧并检查：
+
+```bash Terminal
+ffmpeg -y -c:v libvpx-vp9 -i out.webm -frames:v 1 -pix_fmt rgba -update 1 frame0.png
+```
+
+解码后的 `frame0.png` 应该是 RGBA 并且具有重要的 alpha 值。
+
+### CoreML“可用”，但推理无法启动
+
+如果 CoreML 绑定失败，管道会自动回退到 CPU，并发出警告。如果您想完全跳过 CoreML 尝试，请强制使用 CPU：
+
+```bash Terminal
+npx hyperframes remove-background subject.mp4 -o transparent.webm --device cpu
+```
+
+### Alpha 蒙版具有粗糙或锯齿状边缘
+
+这通常意味着源帧与相似色调的背景形成高对比度，并且模型的 320×320 推理分辨率得以显示。两条前进道路：
+
+1. 重新构图或重新拍摄，为拍摄对象提供更具对比的背景。
+2. 通过 `rembg` 尝试 `birefnet-portrait` （请参阅[其他开源模型](#other-open-source-models)）——它在头发边缘的质量更高，但速度更慢、更重。
+
+## 参考
+
+- CLI: [`hyperframes remove-background`](/packages/cli#remove-background)
+- 评估：[抠图评估 — v7](https://www.heygenverse.com/a/0dd5a431-1832-4858-862d-de7fb7d02654)
+- 源模型：[danielgatis/rembg](https://github.com/danielgatis/rembg)
+- ONNX 运行时：[`onnxruntime-node`](https://www.npmjs.com/package/onnxruntime-node)

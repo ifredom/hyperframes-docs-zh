@@ -1,0 +1,48 @@
+---
+title: "视觉特效文本光标"
+description: "黑色舞台上的光标发光、彩色阴影光线和定向照明显示出戏剧性的文本。具有光谱颜色边缘的基于画布的着色器后处理。"
+---
+
+# 视觉特效文本光标
+
+黑色舞台上的光标发光、彩色阴影光线和定向照明显示出戏剧性的文本。具有光谱颜色边缘的基于画布的着色器后处理。
+
+`html-in-canvas` `text` `shader` `cursor` `chromatic`
+
+<Warning>
+**需要 Chrome 标志。** 启用 `chrome://flags/#canvas-draw-element` 进行实时预览。通过 CLI 渲染会自动启用该标志。 [了解更多](/guides/html-in-canvas)。
+</Warning>
+
+<video className="w-full aspect-video rounded-xl object-cover bg-zinc-100 dark:bg-zinc-800" src="https://static.heygen.ai/hyperframes-oss/docs/images/catalog/blocks/vfx-text-cursor.mp4" poster="https://static.heygen.ai/hyperframes-oss/docs/images/catalog/blocks/vfx-text-cursor.png" autoPlay muted loop playsInline />
+
+## 安装
+
+<CodeGroup>
+
+```bash Terminal
+npx hyperframes add vfx-text-cursor
+```
+
+</CodeGroup>
+
+## 细节
+
+| 财产 | 价值 |
+| --- | --- |
+| 类型 | 堵塞 |
+| 方面 | 1920×1080 |
+| 期间 | 8秒 |
+
+## 文件
+
+| 文件 | 目标 | 类型 |
+| --- | --- | --- |
+| `vfx-text-cursor.html` | `compositions/vfx-text-cursor.html` | 超框架:组合 |
+
+## 用法
+
+安装后，将该块添加到您的主机组合中：
+
+```html
+<div data-composition-id="vfx-text-cursor" data-composition-src="compositions/vfx-text-cursor.html" data-start="0" data-duration="8" data-track-index="1" data-width="1920" data-height="1080"></div>
+```

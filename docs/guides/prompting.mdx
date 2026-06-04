@@ -1,0 +1,278 @@
+---
+title: 提示指南
+description: "如何提示 Claude Code、Cursor、Codex、Google Antigravity、GitHub Copilot CLI 和其他 AI 代理创作超框架作品 - 包含可复制粘贴的示例和词汇表。"
+---
+
+Hyperframes 是为 AI 代理构建的 - 组合是纯 HTML，CLI 是非交互式的，并且框架提供[技能](https://github.com/vercel-labs/skills)，可以向代理传授模式文档本身无法涵盖的内容。本指南展示了一旦​​安装了技能，如何有效地提示代理——改变输出的词汇、节省时间的迭代模式以及防止破坏的规则。
+
+## 一次性设置
+
+在您的项目中（或在您的代理的全局范围内）安装技能：
+
+```bash
+npx skills add heygen-com/hyperframes
+```
+
+在 Claude Code 中，安装后重新启动会话。技能注册为**斜线命令**：
+
+| 斜线命令              | 它加载什么                                                              |
+| -------------------------- | -------------------------------------------------------------------------- |
+| `/hyperframes`             | 作品创作 — HTML 结构、时间安排、字幕、TTS、过渡 |
+| `/hyperframes-cli`         | 开发循环 CLI — `init`、`lint`、`inspect`、`preview`、`render`、`doctor`    |
+| `/hyperframes-media`       | 资产预处理 — `tts`、`transcribe`、`remove-background`             |
+| `/hyperframes-registry`    | 通过 `hyperframes add` 安装块和组件                     |
+| `/website-to-hyperframes`  | 捕获 URL 并将其转换为视频；运行完整的[HyperFrames管道](/guides/pipeline) |
+| `/gsap`                    | GSAP 动画 API — 时间线、缓动、ScrollTrigger、插件             |
+
+<Tip>
+  始终在HyperFrames提示前加上 `/hyperframes` 前缀（或以其他方式为非 Claude 特工调用该技能）。这会显式加载技能上下文，以便代理第一次就获得正确的合成规则，而不是依赖于它记住的有关网络视频的任何内容。
+</Tip>
+
+## 克劳德设计
+
+克劳德设计公司使用了不同的设置。从 GitHub 下载 [`claude-design-hyperframes.md`](https://github.com/heygen-com/hyperframes/blob/main/docs/guides/claude-design-hyperframes.md)（单击 ↓ 按钮），然后**将其附加到您的聊天**（不要粘贴 URL — 文件附件会产生更好的输出）：
+
+```text
+Use the attached skill. 25-second LinkedIn video for my startup.
+
+Problem: Sales teams waste 3 hours/day on manual CRM updates.
+Solution: AutoCRM — AI that logs every call, email, and meeting.
+Traction: 200+ teams, $1.2M ARR, 18% MoM growth.
+CTA: autocrmhq.com
+```
+
+克劳德设计制作了有效的初稿（品牌标识、场景内容、动画、过渡）。下载 ZIP 并在任何运行 `npx hyperframes preview` 的 AI 编码智能体中进行优化。请参阅 [Claude 设计指南](/guides/claude-design) 了解完整的工作流程。
+
+## 两种提示形状
+
+最成功的超框架提示属于两种形式之一。
+
+### 冷启动——描述视频
+
+你从头开始告诉代理人你想要什么。最适合您头脑中有创意方向的全新工作。
+
+> 使用 `/hyperframes` 创建一个 10 秒的产品介绍，并在深色背景和微妙的背景音乐上淡入标题。
+
+> 使用 `/hyperframes` 制作一个关于 [主题] 的 9 分 16 秒的 TikTok 式挂钩视频，并带有与 TTS 旁白同步的弹性字幕。
+
+当您指定以下内容时，冷启动提示效果最佳：
+
+- **持续时间**（例如“10 秒”、“30 秒”、“5 个场景，每个场景 3 秒”）
+- **纵横比**（“16:9”、“9:16 垂直”、“1:1 方形”）— 默认为 1920x1080
+- **心情/风格**（“最小瑞士网格”、“温暖谷物模拟”、“高能社交”）
+- **关键要素**（标题、下三分之一、字幕、背景视频、音乐）
+
+### 热启动——将上下文变成视频
+
+你给代理一些可以使用的东西——一个URL、一个文档、一个CSV、一份文字记录——并要求它把这些内容合成一个视频。这就是 Hyperframes 的亮点，因为代理在一个流程中完成研究/总结步骤*和*生产步骤。
+
+> 查看此 GitHub 存储库 https://github.com/heygen-com/hyperframes 并使用 `/hyperframes` 向我解释其用途和架构。
+
+> 使用 `/hyperframes` 将随附的 PDF 总结为 45 秒的推介视频。
+
+> 阅读此变更日志并使用 `/hyperframes` 将前三项更改转换为 30 秒的发布公告视频。
+
+> 使用 `/hyperframes` 将此 CSV 转换为动画条形图竞赛。
+
+热启动提示会产生更丰富、更接地气的视频，因为代理正在撰写“特定的内容”，而不是发明文案。
+
+## 迭代
+
+超框架是一种对话。第一次渲染后，以与视频编辑器交谈的方式与代理交谈 - 不要从头开始重新提示：
+
+> 将标题放大 2 倍。
+
+> 切换到深色模式。
+
+> 在结尾处添加淡出效果，并在 0:03 处添加一个下三分之一，其中包含我的名字和标题。
+
+> 标题太小并且与下三分之一重叠。将它们向上移动并缩小。
+
+> 将背景音乐替换为 `assets/track.mp3`。
+
+代理已经打开了构图并加载了技能——小的有针对性的编辑比长时间的重新指定产生更好的结果。
+
+## 改变输出的词汇
+
+这些技能将自然语言形容词映射到特定的框架设置。使用正确的词语可以获得正确的结果，而无需指定技术细节。
+
+### 运动和缓动
+
+描述运动应该如何“感觉”以及代理如何选择匹配的 GSAP 缓动：
+
+| 说这个    | 代理用途       | 感觉就像                     |
+| ----------- | ---------------- | ------------------------------ |
+| 光滑的      | `power2.out`     | 自然减速           |
+| 活泼的      | `power4.out`     | 快速果断             |
+| 有弹性的      | `back.out`       | 超调然后稳定        |
+| 有弹性的     | `elastic.out`    | 振荡到位          |
+| 戏剧性    | `expo.out`       | 快速启动，长滑行         |
+| 梦幻般的      | `sine.inOut`     | 缓慢、对称              |
+
+**时间速记：**快（0.2秒）=能量，中（0.4秒）=专业，慢（0.6秒）=豪华，非常慢（1-2秒）=电影般。
+
+### 字幕音
+
+描述您的标题的“能量”，代理会选择匹配的版式、大小和动画：
+
+| 语气         | 版式             | 动画片    | 尺寸范围 |
+| ------------ | ---------------------- | ------------ | ---------- |
+| 炒作         | 重磅字体     | 音阶流行    | 72–96 像素    |
+| 公司的    | 干净的无衬线字体       | 淡入淡出+滑动 | 56–72 像素    |
+| 教程     | 小型货车              | 打字机   | 48–64 像素    |
+| 评书 | 衬线                  | 缓慢褪色    | 44–56 像素    |
+| 社会的       | 圆润、俏皮       | 弹跳       | 56–80 像素    |
+
+```
+"Hype-style captions with scale-pop"
+"Calm, elegant subtitles with slow fades"
+"Karaoke-style word highlighting"
+```
+
+每个单词的样式也有效：
+
+```
+"Make brand names larger with accent color"
+"Add bounce to emotional keywords"
+"Highlight numbers differently"
+```
+
+### 过渡
+
+每个多场景合成都受益于过渡。描述能量水平：
+
+| 活力  | CSS 选项       | 着色器选项       |
+| ------- | ---------------- | ------------------- |
+| 冷静的    | 模糊交叉淡入淡出   | 交叉扭曲变形    |
+| 中等的  | 推滑梯       | 搅打锅            |
+| 高的    | 放大     | 小故障、脊状烧伤 |
+
+或者按心情描述：
+
+```
+"Warm transitions for this wellness brand"
+"Cold, clinical transitions for tech"
+"Playful bouncy transitions"
+"Dramatic zoom for the reveal"
+```
+
+### 音频反应动画
+
+将音频频段映射到视觉属性。代理使用以下默认值：
+
+| 音频带 | 映射到   | 视觉效果       |
+| ---------- | --------- | ------------------- |
+| 低音       | `scale`   | 跟着节拍跳动   |
+| 高音     | `glow`    | 闪光强度   |
+| 振幅  | `opacity` | 呼吸           |
+| 中频       | `shape`   | 变形            |
+
+```
+"Make the text pulse with the beat"
+"Add bass-driven scale to the logo"
+"Create glow that responds to treble"
+```
+
+<Tip>
+  使文本的音频反应效果保持微妙（3-6% 强度）。背景变大（10-30%）。
+</Tip>
+
+### 标记亮点
+
+手绘文本强调效果：
+
+| 模式        | 影响             | 最适合      |
+| ----------- | ------------------ | ------------- |
+| `highlight` | 标记扫描       | 关键词   |
+| `circle`    | 手绘椭圆 | 单字  |
+| `burst`     | 辐射线    | 炒作时刻  |
+| `scribble`  | 混乱的划痕    | 划掉  |
+| `sketchout` | 矩形轮廓  | 标注      |
+
+```
+"Add a marker highlight sweep on 'revolutionary'"
+"Circle this keyword with hand-drawn effect"
+"Add burst lines around 'AMAZING'"
+```
+
+### 文本转语音
+
+TTS 通过 Kokoro 在本地运行（无需 API 密钥）。描述内容，然后客服人员选择一个声音，或者直接请求一个声音：
+
+| 内容类型  | 推荐声音         |
+| ------------- | -------------------------- |
+| 产品演示  | `af_heart`、`af_nova`      |
+| 教程      | `am_adam`、`bf_emma`       |
+| 营销     | `af_sky`、`am_michael`     |
+
+```
+"Generate narration for this script"
+"Create voiceover with a professional female voice"
+"Add TTS with British male voice at 1.1x speed"
+```
+
+### 渲染质量
+
+| 质量    | 用于                  |
+| ---------- | ------------------------ |
+| `draft`    | 快速迭代           |
+| `standard` | 审核与反馈      |
+| `high`     | 最终交付           |
+
+```
+"Quick draft render"
+"Render at high quality"
+"Export as transparent WebM"
+```
+
+## 规则须知
+
+这些技能会自动强制执行这些规则，但如果您手动编辑合成或调试问题，这些规则就很重要：
+
+1. **在 `window.__timelines` 上注册所有时间线** — 渲染器无法寻找它不知道的动画。
+2. **视频元素必须是 `muted`** — 音频位于单独的 `<audio>` 元素中，以便渲染器可以混合它。
+3. **没有 `Math.random()`** — 随机值在每次渲染上产生不同的帧，打破了确定性。如果您需要伪随机值，请使用种子 PRNG（例如 mulberry32）。
+4. **同步时间线构建** - GSAP 时间线设置期间无 `async`/`await` 或 `fetch()`。
+5. **定时元素需要 `class="clip"`** — 加上 `data-start`、`data-duration` 和 `data-track-index`。
+6. **为每个场景添加入口动画** - 没有动画的元素在视频中感觉很破碎。
+7. **在场景之间添加过渡** - 在合成视频中，场景之间的跳切几乎总是无意的。
+
+<Warning>
+  规则 1-5 是技术要求——违反它们会导致错误的渲染。规则 6-7 是技能默认应用的最佳实践。当您有理由时，您可以覆盖它们。
+</Warning>
+
+## 反模式
+
+引起摩擦（或错误输出）的因素：
+
+- **不要要求 React / Vue 组件。** Hyperframes 组合是带有 `data-*` 属性和 GSAP 时间线的纯 HTML。请求“用于介绍的 React 组件”会强制代理稍后进行翻译。
+- **除非需要，否则不要要求 4K 或 60fps。** 默认值（1920×1080，30fps）渲染速度快且看起来很棒。更高的规格会显着降低渲染速度。
+- **不要跳过斜杠命令。** 如果没有 `/hyperframes`，代理可能会猜测 HTML 视频约定，而不是使用框架的实际规则（定时元素上的 `class="clip"`、`window.__timelines` 注册等）。
+- **不要在没有上下文的情况下将长错误日志粘贴到提示中。** 首先运行 `npx hyperframes lint` 和 `npx hyperframes validate` — lint 捕获结构问题，验证捕获运行时错误（JS 异常、缺少资产、对比问题）。
+- **不要假设代理知道您的资产。** 明确提及文件路径（`assets/intro.mp4`、`assets/logo.png`） - 代理将检查那里有什么，但提示会加快速度。
+
+## 推荐的工作流程
+
+1. `npx hyperframes init my-video` — 搭建一个项目（技能自动安装）
+2. 在 Claude Code（或 Cursor / Codex）中打开项目
+3. 使用 `/hyperframes` 和上面的形状之一进行提示
+4. `npx hyperframes preview` — 在代理编辑时在浏览器中观看
+5. 用有针对性的小提示进行迭代
+6. `npx hyperframes render --output final.mp4` 当你高兴的时候
+
+## 后续步骤
+
+<CardGroup cols={2}>
+  <Card title="快速入门" icon="rocket" href="/quickstart">
+    构建并渲染您的第一个视频
+  </Card>
+  <Card title="常见错误" icon="circle-exclamation" href="/guides/common-mistakes">
+    linter 无法捕获的陷阱
+  </Card>
+  <Card title="GSAP动画" icon="wand-magic-sparkles" href="/guides/gsap-animation">
+    添加淡入淡出、滑动、缩放和自定义动画
+  </Card>
+  <Card title="目录" icon="grid-2" href="/catalog/blocks/data-chart">
+    50 多个即用型块和组件
+  </Card>
+</CardGroup>

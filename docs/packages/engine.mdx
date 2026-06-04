@@ -1,0 +1,415 @@
+---
+title: "@hyperframes/引擎"
+description: "使用 Chrome 的 BeginFrame API 的可搜索页面到视频捕获引擎。"
+---
+
+引擎包提供低级视频捕获管道：它在无头 Chrome 中加载 HTML 页面，独立查找每个帧，并使用 Chrome 的 `HeadlessExperimental.beginFrame` API 捕获像素缓冲区。该层使HyperFrames渲染具有确定性。
+
+```bash
+npm install @hyperframes/engine
+```
+
+## 何时使用
+
+<Warning>
+  **大多数用户不应该直接使用引擎。** 请使用 [CLI](/packages/cli) (`npx hyperframes render`) 或 [生产者](/packages/producer) 包 - 它们会为您处理运行时注入、音频混合和编码。
+</Warning>
+
+**当您需要时使用 `@hyperframes/engine`：**
+- 构建自定义渲染管道，完全控制帧捕获
+- 将HyperFrames捕获集成到现有视频处理系统中
+- 捕获单个帧（例如缩略图或精灵表），无需编码为视频
+- 实现自定义编码后端（不是 FFmpeg）
+
+**如果您愿意，请使用不同的包：**
+- 将 HTML 合成渲染为完成的 MP4 或 WebM — 使用 [生产者](/packages/producer) 或 [CLI](/packages/cli)
+- 在浏览器中预览合成 — 使用 [CLI](/packages/cli) 或 [studio](/packages/studio)
+- Lint 或解析 HTML 组合 — 使用 [core](/packages/core)
+
+## 它是如何运作的
+
+该引擎实现了一个与屏幕录制根本不同的 **寻找和捕获** 循环：
+
+<Steps>
+  <Step title="启动无头 Chrome">
+    该引擎启动 `chrome-headless-shell`，这是一个最小的无头 Chrome 二进制文件，针对通过 Chrome DevTools 协议 (CDP) 进行编程控制进行了优化。
+  </Step>
+  <Step title="加载构图">
+    您的 HTML 组合将加载到浏览器页面中。注入 Hyperframes 运行时来管理时间线搜索。
+  </Step>
+  <Step title="寻找每一帧">
+    对于视频中的每一帧（例如，30fps 的 30 秒视频为 900 帧），引擎调用 `renderSeek(time)` 将合成推进到准确的时间戳。不涉及挂钟——每个框架都是独立定位的。
+  </Step>
+  <Step title="通过 BeginFrame 捕获">
+    Chrome 的 `HeadlessExperimental.beginFrame` API 将合成器输出捕获为像素缓冲区。这会产生像素完美的帧，没有任何屏幕录制伪影。
+  </Step>
+  <Step title="移交帧">
+    捕获的帧缓冲区被传递给消费者 - 通常是 FFmpeg（通过生产者）用于编码为 MP4，但您可以提供自己的消费者。
+  </Step>
+</Steps>
+
+这种方法保证了[确定性渲染](/concepts/determinism)：相同的 HTML 始终生成相同的视频，无论系统负载或计时如何。
+
+## 配置
+
+```typescript
+import { resolveConfig, DEFAULT_CONFIG } from '@hyperframes/engine';
+import type { EngineConfig } from '@hyperframes/engine';
+
+// Use defaults
+const config = DEFAULT_CONFIG;
+
+// Or resolve with overrides
+const config = resolveConfig({
+  // ... custom options
+});
+```
+
+### 质量预设
+
+| 预设 | 使用案例 | 速度 |
+|--------|----------|-------|
+| `draft` | 开发过程中快速迭代 | 最快 |
+| `standard` | 制作渲染具有良好的质量/速度平衡 | 缓和 |
+| `high` | 最终交付，最高品质 | 最慢 |
+
+### FPS 选项
+
+| FPS | 使用案例 |
+|-----|----------|
+| `24` | 电影般的外观，更小的文件大小 |
+| `30` | 标准网络视频，平衡性好 |
+| `60` | 流畅的动作、UI 动画、屏幕录制 |
+
+## 程序化使用
+
+该引擎使用基于会话的 API 进行帧捕获：
+
+```typescript
+import {
+  createCaptureSession,
+  initializeSession,
+  captureFrame,
+  captureFrameToBuffer,
+  getCompositionDuration,
+  closeCaptureSession,
+} from '@hyperframes/engine';
+
+// 1. Create a capture session
+const session = await createCaptureSession({ fps: { num: 30, den: 1 }, width: 1920, height: 1080 });
+
+// 2. Initialize with a composition
+await initializeSession(session, './my-video/index.html');
+
+// 3. Get the total duration
+const duration = getCompositionDuration(session);
+
+// 4. Capture frames
+const totalFrames = Math.ceil(duration * 30);
+for (let i = 0; i < totalFrames; i++) {
+  // Capture to disk
+  const result = await captureFrame(session, i);
+  // result.path, result.captureTimeMs
+
+  // Or capture to buffer (in-memory)
+  const bufResult = await captureFrameToBuffer(session, i);
+  // bufResult.buffer, bufResult.captureTimeMs
+}
+
+// 5. Clean up
+await closeCaptureSession(session);
+```
+
+### 浏览器管理
+
+```typescript
+import {
+  acquireBrowser,
+  releaseBrowser,
+  resolveHeadlessShellPath,
+  buildChromeArgs,
+} from '@hyperframes/engine';
+
+// Acquire a browser instance (creates or reuses from pool)
+const browser = await acquireBrowser();
+
+// Get the Chrome binary path
+const chromePath = await resolveHeadlessShellPath();
+
+// Release when done
+await releaseBrowser(browser);
+```
+
+### 编码
+
+该引擎包括 FFmpeg 编码实用程序，支持 MP4 (h264) 和 WebM（带 alpha 的 VP9）：
+
+```typescript
+import {
+  encodeFramesFromDir,
+  muxVideoWithAudio,
+  applyFaststart,
+  detectGpuEncoder,
+  getEncoderPreset,
+  ENCODER_PRESETS,
+} from '@hyperframes/engine';
+
+// Get format-aware encoder settings
+const mp4Preset = getEncoderPreset('standard', 'mp4');
+// { codec: "h264", pixelFormat: "yuv420p", preset: "medium", quality: 23 }
+
+const webmPreset = getEncoderPreset('standard', 'webm');
+// { codec: "vp9", pixelFormat: "yuva420p", preset: "good", quality: 23 }
+
+// Encode captured frames to video
+await encodeFramesFromDir(framesDir, 'frame_%06d.png', outputPath, {
+  fps: { num: 30, den: 1 },
+  ...webmPreset,
+});
+
+// Mix video with audio (uses Opus for WebM, AAC for MP4)
+await muxVideoWithAudio(videoPath, audioPath, outputPath);
+
+// Apply MP4 faststart for streaming (no-op for WebM)
+await applyFaststart(inputPath, outputPath);
+
+// Detect GPU encoding support
+const gpu = await detectGpuEncoder();
+// gpu: "nvenc" | "videotoolbox" | "vaapi" | "qsv" | "amf" | null
+```
+
+#### WebM 与 VP9 Alpha
+
+为透明度进行编码时，请将 `format: "webm"` 与 `getEncoderPreset()` 结合使用。这配置：
+- **VP9 编解码器** (`libvpx-vp9`) 具有支持 alpha 的 `yuva420p` 像素格式
+- **`-auto-alt-ref 0`** 和 **`alpha_mode=1`** 元数据用于正确的 alpha 编码
+- **`-row-mt 1`** 用于多线程 VP9 编码
+- 复用步骤中的 **Opus 音频**（而不是 MP4 的 AAC）
+
+### 流媒体编码器
+
+对于无需将帧写入磁盘的内存高效编码：
+
+```typescript
+import { spawnStreamingEncoder } from '@hyperframes/engine';
+
+const encoder = await spawnStreamingEncoder({
+  outputPath: './output.mp4',
+  fps: { num: 30, den: 1 },
+  width: 1920,
+  height: 1080,
+});
+
+// Feed frames directly to encoder
+encoder.writeFrame(frameBuffer);
+// ...
+const result = await encoder.finalize();
+```
+
+### 视频帧提取
+
+从源视频文件中提取帧以注入浏览器：
+
+```typescript
+import {
+  parseVideoElements,
+  extractAllVideoFrames,
+  getFrameAtTime,
+  createFrameLookupTable,
+  FrameLookupTable,
+} from '@hyperframes/engine';
+
+// Parse video elements from HTML
+const videos = parseVideoElements(html);
+
+// Extract all frames from a video
+const frames = await extractAllVideoFrames(videoPath, { fps: 30 });
+
+// Create a lookup table for fast frame access
+const lookup = createFrameLookupTable(frames);
+const frame = lookup.getFrameAtTime(5.0);
+```
+
+### 音频处理
+
+```typescript
+import { parseAudioElements, processCompositionAudio } from '@hyperframes/engine';
+
+// Parse audio elements from HTML
+const audioElements = parseAudioElements(html);
+
+// Process and mix all audio tracks
+const mixResult = await processCompositionAudio({ audioElements, duration, fps });
+```
+
+### 并行渲染
+
+```typescript
+import {
+  calculateOptimalWorkers,
+  distributeFrames,
+  executeParallelCapture,
+  getSystemResources,
+} from '@hyperframes/engine';
+
+// Check system resources
+const resources = getSystemResources();
+
+// Calculate optimal worker count
+const workers = calculateOptimalWorkers(totalFrames);
+
+// Distribute frames across workers
+const tasks = distributeFrames(totalFrames, workers);
+
+// Execute parallel capture
+const results = await executeParallelCapture(tasks);
+```
+
+### 文件服务器
+
+通过 HTTP 提供合成文件以供浏览器加载：
+
+```typescript
+import { createFileServer } from '@hyperframes/engine';
+
+const server = await createFileServer({ root: './my-video', port: 0 });
+// server.url, server.port
+// ... use server.url as the composition URL
+await server.close();
+```
+
+## HDR API
+
+该引擎导出两层 HDR 支持：**颜色空间实用程序**，用于对源进行分类并配置 FFmpeg 编码器，以及 **WebGPU 读回运行时**，用于将 CSS 动画 DOM 直接捕获到 HDR 中。
+
+对于端到端 HDR 渲染（合成为 HDR10 MP4 的 HDR 视频和图像源），请使用 [生产者](/packages/producer) 或具有 HDR 自动检测功能的 CLI 渲染管道 / `--hdr` / `--sdr` — 请参阅 [HDR 渲染](/guides/hdr)。以下 API 用于自定义集成。
+
+### 色彩空间实用程序
+
+```typescript
+import {
+  isHdrColorSpace,
+  detectTransfer,
+  analyzeCompositionHdr,
+  getHdrEncoderColorParams,
+  DEFAULT_HDR10_MASTERING,
+} from '@hyperframes/engine';
+import type { HdrTransfer, HdrEncoderColorParams, HdrMasteringMetadata } from '@hyperframes/engine';
+
+// Classify a single source from its ffprobe color space
+isHdrColorSpace(colorSpace);          // boolean — true for BT.2020 / PQ / HLG
+detectTransfer(colorSpace);           // 'pq' | 'hlg' (gate on isHdrColorSpace first)
+
+// Pick the dominant transfer across many sources
+analyzeCompositionHdr([cs1, cs2]);    // { hasHdr, dominantTransfer: 'pq' | 'hlg' | null }
+
+// Build the FFmpeg color params + HDR10 static metadata for x265
+const params = getHdrEncoderColorParams('pq');
+// {
+//   colorPrimaries: 'bt2020',
+//   colorTrc: 'smpte2084',
+//   colorspace: 'bt2020nc',
+//   pixelFormat: 'yuv420p10le',
+//   x265ColorParams: 'colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:master-display=...:max-cll=1000,400',
+//   mastering: { masterDisplay: '...', maxCll: '1000,400' },
+// }
+```
+
+`getHdrEncoderColorParams` 始终包含颜色标记*和* HDR10 静态元数据（控制显示 + 内容亮度级别）。如果没有该元数据，下游播放器会将该文件视为 SDR BT.2020，并且会错误地进行色调映射。如果您测量了每个内容的值，则传递自定义 `HdrMasteringMetadata` ；否则，保守的 `DEFAULT_HDR10_MASTERING` 默认值与大多数 HDR10 分级套件标记内容的方式相匹配。
+
+### WebGPU HDR DOM 捕获
+
+为了将 CSS 动画 DOM 直接捕获到 HDR（不涉及 FFmpeg 源），引擎公开了一个单独的 WebGPU 管道：
+
+```typescript
+import {
+  launchHdrBrowser,
+  buildHdrChromeArgs,
+  initHdrReadback,
+  uploadAndReadbackHdrFrame,
+  float16ToPqRgb,
+} from '@hyperframes/engine';
+
+// Launch headed Chrome with WebGPU enabled
+const { browser, page } = await launchHdrBrowser({ width: 1920, height: 1080 });
+
+// Inject the WebGPU readback runtime
+const ok = await initHdrReadback(page, 1920, 1080);
+
+// For each frame: upload float16 pixels, read back float16 RGBA
+const { rgba16, bytesPerRow } = await uploadAndReadbackHdrFrame(page, float16Base64);
+
+// Convert linear float16 → PQ-encoded 16-bit RGB suitable for piping into ffmpeg/x265
+const pqRgb = float16ToPqRgb(rgba16, width, height, bytesPerRow);
+```
+
+<Warning>
+  此路径需要 **headed Chrome 和 `--enable-unsafe-webgpu`** — WebGPU 在 `chrome-headless-shell` 中不可用。默认的 HDR 感知渲染管道（通过 FFmpeg 从源中提取 HDR 像素并在 Node 中进行合成）*不*使用它。仅将其用于需要 CSS 动画驱动 HDR 像素输出的高级自定义管道。
+</Warning>
+
+## `window.__hf` 协议
+
+引擎通过 `window.__hf` 协议与浏览器页面通信。任何实现此协议的页面都可以被引擎捕获 - 您不仅限于超框架组合。
+
+```typescript
+// The page must expose this on window.__hf
+interface HfProtocol {
+  duration: number;                  // Total duration in seconds
+  seek(time: number): void;         // Seek to a specific time
+  media?: HfMediaElement[];         // Optional media element declarations
+}
+
+interface HfMediaElement {
+  elementId: string;                 // DOM element ID
+  src: string;                       // Media source URL
+  startTime: number;                 // Start time on timeline
+  endTime: number;                   // End time on timeline
+  mediaOffset?: number;              // Playback offset in source
+  volume?: number;                   // Volume (0-1)
+  hasAudio?: boolean;                // Whether element has audio
+}
+```
+
+## 关键概念
+
+### 开始帧渲染
+
+传统的屏幕捕获以挂钟速度记录 - 如果您的系统负载过重，就会丢帧。该引擎使用 Chrome 的 `HeadlessExperimental.beginFrame` 显式推进合成器，按需生成每一帧。这意味着：
+
+- **无丢帧** — 捕获每一帧
+- **无时间依赖性** — 60 秒的视频不需要 60 秒来捕获
+- **像素完美输出** — 合成器生成要显示的精确像素
+
+有关如何实现确定性输出的更多信息，请参阅[确定性渲染](/concepts/determinism)。
+
+### 寻求合同
+
+该引擎依赖于 Hyperframes 运行时的 `renderSeek(time)` 函数。调用时，`renderSeek`：
+
+1. 暂停所有 GSAP 时间表
+2. 寻找每个时间线的确切时间戳
+3. 更新所有媒体元素（视频、音频）以匹配
+4. 根据 `data-start` 和 `data-duration` 安装/卸载剪辑
+
+这个契约使得逐帧捕捉成为可能——每一帧都是该时间点合成的完整、独立的快照。
+
+### Chrome 要求
+
+该引擎需要 `chrome-headless-shell`，它在您安装软件包时包含在内。它使用固定的 Chrome 版本来确保跨环境的一致渲染。要获得完全确定性的输出（包括字体），请通过 [生产者](/packages/producer) 使用 Docker 模式。
+
+## 相关套餐
+
+<CardGroup cols={2}>
+  <Card title="制片人" icon="film" href="/packages/producer">
+    通过运行时注入、FFmpeg 编码和音频混合来包装引擎，以实现完整的 MP4 输出。
+  </Card>
+  <Card title="核" icon="cube" href="/packages/core">
+    提供引擎所依赖的类型、运行时和 linter。
+  </Card>
+  <Card title="命令行界面" icon="terminal" href="/packages/cli">
+    最简单的渲染方法——在后台调用生产者（和引擎）。
+  </Card>
+  <Card title="工作室" icon="palette" href="/packages/studio">
+    用于在使用引擎渲染合成之前构建合成的可视化编辑器。
+  </Card>
+</CardGroup>

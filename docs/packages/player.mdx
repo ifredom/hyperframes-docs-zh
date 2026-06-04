@@ -1,0 +1,241 @@
+---
+title: "@hyperframes/玩家"
+description: "可嵌入的 Web 组件，用于在任何网页中播放 HyperFrames 作品。"
+---
+
+播放器包提供了一个 `<hyperframes-player>` 自定义元素，该元素将 HyperFrames 组合嵌入到任何位置（任何框架或纯 HTML 中）。零依赖性，3KB gzip 压缩。
+
+```bash
+npm install @hyperframes/player
+```
+
+## 何时使用
+
+**当您需要时使用 `@hyperframes/player`：**
+- 将渲染的合成嵌入网站、仪表板或应用程序中
+- 将类似视频的播放器添加到着陆页或产品演示中
+- 显示文档或博客文章中的成分
+
+**如果您愿意，请使用不同的包：**
+- 交互式编辑作品 — 使用 [studio](/packages/studio)
+- 开发期间预览 - 使用 [CLI](/packages/cli) (`npx hyperframes preview`)
+- 渲染为 MP4 — 使用 [CLI](/packages/cli) 或 [生产者](/packages/producer)
+
+## 快速入门
+
+### 通过CDN
+
+```html
+<script type="module" src="https://cdn.jsdelivr.net/npm/@hyperframes/player"></script>
+
+<hyperframes-player
+  src="./my-composition/index.html"
+  controls
+  autoplay
+  muted
+  style="width: 100%; max-width: 800px; aspect-ratio: 16/9"
+></hyperframes-player>
+```
+
+如果您需要经典的 `<script>` 标签而不是 ESM，请使用显式全局构建：
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@hyperframes/player/dist/hyperframes-player.global.js"></script>
+```
+
+### 通过npm
+
+```js
+import '@hyperframes/player';
+```
+
+```html
+<hyperframes-player src="/compositions/intro.html" controls></hyperframes-player>
+```
+
+## HTML 属性
+
+| 属性 | 类型 | 默认 | 描述 |
+|-----------|------|---------|-------------|
+| `src` | 细绳 | 必需的 | URL 或合成 HTML 的相对路径 |
+| `width` | 数字 | 1920 | 构图宽度（以像素为单位） |
+| `height` | 数字 | 1080 | 构图高度（以像素为单位） |
+| `controls` | 布尔值 | 错误的 | 显示播放控件叠加层 |
+| `autoplay` | 布尔值 | 错误的 | 开始加载播放 |
+| `loop` | 布尔值 | 错误的 | 循环播放 |
+| `muted` | 布尔值 | 真的 | 静音音频（大多数浏览器中自动播放所需） |
+| `poster` | 细绳 | — | 首次播放前显示的图像 URL |
+| `playback-rate` | 数字 | 1 | 播放速度倍增器 |
+
+## JavaScript API
+
+播放器镜像原生 `<video>` 元素 API：
+
+```js
+const player = document.querySelector('hyperframes-player');
+
+// Playback
+player.play();
+player.pause();
+player.seek(2.5); // seek to 2.5 seconds
+
+// Properties
+player.currentTime;     // number — current position in seconds
+player.currentTime = 5; // seek to 5 seconds
+player.duration;        // number — total duration
+player.paused;          // boolean
+player.ready;           // boolean — true after composition loads
+player.playbackRate;    // number — get/set speed
+player.muted;           // boolean — get/set mute
+player.loop;            // boolean — get/set loop
+```
+
+## 活动
+
+```js
+const player = document.querySelector('hyperframes-player');
+
+player.addEventListener('ready', (e) => {
+  console.log('Duration:', e.detail.duration);
+});
+
+player.addEventListener('timeupdate', (e) => {
+  console.log('Time:', e.detail.currentTime);
+});
+
+player.addEventListener('play', () => console.log('Playing'));
+player.addEventListener('pause', () => console.log('Paused'));
+player.addEventListener('ended', () => console.log('Ended'));
+player.addEventListener('error', (e) => console.error(e.detail.message));
+```
+
+| 事件 | 细节 | 描述 |
+|-------|--------|-------------|
+| `ready` | `{ duration }` | 已加载合成并发现时间线 |
+| `timeupdate` | `{ currentTime }` | 播放期间触发 (~30fps) |
+| `play` | — | 播放开始 |
+| `pause` | — | 播放暂停 |
+| `ended` | — | 播放已结束 |
+| `error` | `{ message }` | 加载或运行时错误 |
+
+## 框架示例
+
+### 反应
+
+```jsx
+import '@hyperframes/player';
+
+function VideoPreview({ src }) {
+  return (
+    <hyperframes-player
+      src={src}
+      controls
+      style={{ width: '100%', maxWidth: 800 }}
+    />
+  );
+}
+```
+
+### 维埃
+
+```vue
+<template>
+  <hyperframes-player :src="compositionUrl" controls />
+</template>
+
+<script setup>
+import '@hyperframes/player';
+const compositionUrl = './compositions/intro.html';
+</script>
+```
+
+### 程序化
+
+```js
+import '@hyperframes/player';
+
+const player = document.createElement('hyperframes-player');
+player.src = './my-composition/index.html';
+player.controls = true;
+player.addEventListener('ready', () => player.play());
+document.getElementById('player-container').appendChild(player);
+```
+
+## 高级：iframe 访问
+
+该组合在玩家 Shadow DOM 的沙盒 `<iframe>` 内运行。对于大多数用例，您不需要直接访问 - JavaScript API 和上面的事件就足够了。但是，如果您要在播放器之上构建编辑器、记录器或自定义时间线，则需要检查合成的 DOM 或读取其 `__player` / `__timelines` 运行时对象。 `iframeElement` getter 为这些消费者公开内部 iframe：
+
+```js
+const player = document.querySelector('hyperframes-player');
+const iframe = player.iframeElement;
+
+// Reach into the composition's DOM
+iframe.contentDocument.querySelectorAll('[data-composition-id]');
+
+// Read the runtime (GSAP timelines, element registry, etc.)
+iframe.contentWindow.__timelines;
+```
+
+这是将玩家桥接到 [`@hyperframes/studio`](/packages/studio) 等编辑器工具的规范方法。工作室导出一个 `resolveIframe` 帮助器，用于处理直接 iframe 引用和 Web 组件引用：
+
+```ts
+import { useTimelinePlayer, resolveIframe } from '@hyperframes/studio';
+
+const { iframeRef } = useTimelinePlayer();
+const player = document.createElement('hyperframes-player');
+player.setAttribute('src', src);
+container.appendChild(player);
+
+// Forward the inner iframe so useTimelinePlayer can drive play/pause/seek.
+iframeRef.current = resolveIframe(player);
+```
+
+### React：声明性引用模式
+
+如果您更喜欢 JSX 而不是命令式元素创建，请将引用附加到 Web 组件并解析效果内的 iframe：
+
+```tsx
+import '@hyperframes/player';
+import type { HyperframesPlayer } from '@hyperframes/player';
+import { useTimelinePlayer, resolveIframe } from '@hyperframes/studio';
+
+function StudioPreview({ src }: { src: string }) {
+  const { iframeRef, onIframeLoad } = useTimelinePlayer();
+  const playerRef = useRef<HyperframesPlayer>(null);
+
+  useEffect(() => {
+    iframeRef.current = resolveIframe(playerRef.current);
+  });
+
+  return (
+    <hyperframes-player
+      ref={playerRef}
+      src={src}
+      onLoad={onIframeLoad}
+    />
+  );
+}
+```
+
+<Warning>
+  **常见问题** — 如果将 `<hyperframes-player>` 元素本身（不是 `iframeElement`）传递到需要 `<iframe>` 的挂钩或 API 中，则每个 `.contentWindow` / `.contentDocument` 访问都会返回 `null`，因为 iframe 位于玩家的 Shadow DOM 内部。时间轴搜索、播放、暂停和 DOM 检查都是静默无操作的。 **始终首先提取 `iframeElement`**，或使用 `@hyperframes/studio` 中的 `resolveIframe` 来透明地处理 iframe 和 Web 组件主机。
+</Warning>
+
+## 建筑学
+
+播放器在 Shadow DOM 容器内使用 iframe。这提供了：
+
+- **隔离** — 组合 CSS/JS 不会泄漏到您的页面或与您的页面发生冲突
+- **安全性** — iframe 沙箱限制组合功能
+- **缩放** — 通过 CSS 转换自动缩放合成以适合玩家的容器
+
+播放器通过 HyperFrames 运行时桥接协议 (`postMessage`) 与合成进行通信。现有的组合物无需修改即可工作。
+
+## 控制
+
+当存在 `controls` 属性时，底部会出现最小覆盖层：
+
+- **播放/暂停**按钮（左）
+- **滑动条** 支持拖动（鼠标+触摸）
+- **时间显示** 显示当前/总持续时间（右）
+- 3 秒不活动后自动隐藏，悬停时重新显示

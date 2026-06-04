@@ -1,0 +1,309 @@
+---
+title: HyperFramesMCP
+description: "直接在 Claude.ai 和 ChatGPT 中创作、预览和渲染 HyperFrames 视频 - 无需本地安装。"
+---
+
+HyperFrames MCP 是一个托管的 [模型上下文协议](https://modelcontextprotocol.io) 服务器，可让您从 Claude.ai 或 ChatGPT 内部创建、编辑、预览和渲染 HyperFrames 视频合成。
+
+<Note>
+  **处于测试阶段。** 功能和定价可能会发生变化。发现错误或有反馈？ [在 GitHub 上提交问题](https://github.com/heygen-com/hyperframes/issues)。
+</Note>
+
+## 你能做什么
+
+- 根据自然语言提示创作作品
+- 以对话方式编辑现有作品 — *“将标题放大 2 倍”*、*“添加炒作风格的标题”*
+- 使用视频播放器小部件在聊天中预览结果
+- 渲染到 `mp4`、`webm` 或 `mov` — 输出 URL 流回聊天
+- 重温您之前创作的作品
+- 检查您的渲染积分
+
+`compose` 背后的代理拥有超过 25 项 HyperFrames 特定技能——排版、调色板、运动原理、GSAP 效果、音频反应动画、字幕、语音生成。您不必直接指定其中任何内容；描述您想要的视频，然后代理会选择合适的工具。
+
+<Note>
+  正在寻找开源 CLI？请参阅[快速入门](/quickstart)。 MCP 是一个托管产品，用于在 LLM 聊天中进行零安装创作。 CLI 使您可以完全控制渲染和运行时； MCP 可让您通过云渲染进行即时创作。
+</Note>
+
+## 设置
+
+### 1. 获取HeyGen账户
+
+MCP 需要 HeyGen 帐户进行身份验证和积分。如果您没有，请在 [heygen.com](https://heygen.com) 上注册。
+
+### 2. 添加连接器
+
+<Tabs>
+  <Tab title="克劳德.ai">
+    <Steps>
+      <Step title="打开设置 → 连接器">
+        在 Claude.ai 网页版或桌面版中：**设置 → 连接器 → 添加自定义连接器**。
+      </Step>
+      <Step title="输入网址">
+        粘贴：
+        ```
+        https://mcp.heygen.com/mcp/hyperframes
+        ```
+      </Step>
+      <Step title="登录 HeyGen">
+        OAuth 在新窗口中打开。授权 HyperFrames 连接器访问您的 HeyGen 帐户。
+      </Step>
+      <Step title="开始新的聊天">
+        打开一个新的 Claude.ai 聊天。尝试：
+
+        > 为我制作一个 10 秒的[您的产品]产品介绍，并配有生动的字幕和充满活力的配乐。
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="聊天GPT">
+    <Steps>
+      <Step title="打开应用程序和连接器">
+        在 ChatGPT 中：**设置 → 应用程序和连接器 → 添加 MCP 服务器**。
+      </Step>
+      <Step title="输入网址">
+        粘贴：
+        ```
+        https://mcp.heygen.com/mcp/hyperframes
+        ```
+      </Step>
+      <Step title="登录 HeyGen">
+        通过 OAuth 授权。
+      </Step>
+      <Step title="开始新的聊天">
+        打开一个新的聊天。与 Claude.ai 中的提示相同。
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## 可用工具
+
+MCP 向 LLM 提供了六种工具。您不会直接致电他们 - 模型会根据您的消息选择正确的工具。
+
+| 工具 | 它的作用 | 成本 |
+|---|---|---|
+| `compose` | 创建新的作品或编辑现有的作品 | 作者学分 |
+| `list_compositions` | 列出您之前创作的作品 | 自由的 |
+| `get_composition` | 使用内嵌播放器打开特定的作品 | 自由的 |
+| `render_video` | 将云渲染提交到 mp4 / webm / mov | 渲染学分 |
+| `get_render_status` | 轮询长时间运行的渲染作业 | 自由的 |
+| `get_credits` | 检查您的剩余积分和等级 | 自由的 |
+
+### 撰写
+
+创作新作品或对现有作品进行编辑。 HyperFrames 代理根据您的自然语言提示在内部处理语音选择、字幕、块、布局、过渡、颜色和计时。
+
+**由如下提示触发：**
+
+- “制作一个关于[主题]的 30 秒产品介绍”→ 创建一个新鲜的构图
+- “将标题字体更改为粗体衬线”→ 编辑最新的构图
+- “在号召性用语之前添加 Flash 过渡”→ 应用结构化编辑
+
+**返回：** 合成参考（id、标题、缩略图）以及内嵌播放器小部件。运行期间会出现进度通知流，以便您可以看到代理正在做什么 — *“起草大纲...”、“选择语音和样式...”、“生成 HTML...”、“渲染预览帧...”*
+
+### 列表组合
+
+列出您之前创建的作品。最新的在前，分页。
+
+**由如下提示触发：** *“显示我最近的视频”*、*“我昨天做了什么？”*
+
+### 获取组合
+
+获取单个合成的元数据以及内联播放器小部件。
+
+**由如下提示触发：** *“再次打开该视频”*、*“向我展示我制作的有关 [主题] 的视频”*
+
+### 渲染视频
+
+提交云渲染。默认为 `30fps` 处的 `mp4`。
+
+**格式选项：**
+
+| 格式 | 编解码器 | 用它来 |
+|---|---|---|
+| `mp4`（默认） | H.264 | 最广泛的兼容性、社交媒体、网络 |
+| `webm` | VP9 | 文件较小；支持透明叠加的 Alpha 通道 |
+| `mov` | 专业分辨率 | 用于编辑管道的无损质量 |
+
+**帧速率选项：** `24`、`30`（默认）、`60`。
+
+**返回：** 渲染的视频 URL（如果渲染在 25 秒内完成）或用于轮询的 `job_id`。无论哪种方式，内联渲染进度小部件都会显示实时状态。
+
+**由如下提示触发：** *“渲染此”*、*“导出到 webm”*、*“以 60fps 渲染以进行编辑”*。
+
+### 获取渲染状态
+
+轮询正在进行的渲染。当 `render_video` 返回 `job_id` （长渲染）时，由模型在内部使用。
+
+### 获取积分
+
+返回您的等级和剩余积分。
+
+**触发因素：** *“我还剩下多少渲染？”*，*“我的计划是什么？”*
+
+## 提示提示
+
+### 具体说明你想要什么
+
+代理有很大的创造性自由度——给它足够的指导来很好地使用它。
+
+| 效果较差 | 更有效 |
+|---|---|
+| “制作视频” | “制作一个关于家庭堆肥的 15 秒 TikTok 节目，配有活泼的字幕和温暖的朴实色调” |
+| “添加字幕” | “用我的品牌颜色添加炒作风格的标题#FF6A00” |
+| “让它变短” | “总共修剪到 10 秒——剪掉第三个场景” |
+| “更有活力” | “更换为霓虹灯调色板，并将所有转换时间缩短至 200 毫秒” |
+
+### 对话式迭代
+
+一旦组合存在，代理就会加载当前状态并就地应用编辑。继续跟它说话。
+
+```
+You:    "20-second product intro for my app, dark theme, hype style"
+Agent:  [composition + player widget appears]
+
+You:    "make the logo bigger and add a pulse animation on the CTA"
+Agent:  [updated player widget]
+
+You:    "render to webm with alpha"
+Agent:  [render-progress widget, then player widget with download link]
+```
+
+### 参考您现有的 HeyGen 资产
+
+如果您已将徽标、品牌声音、字体或其他资产上传到您的 HeyGen 帐户，代理就可以使用它们。只需说*“使用我的徽标”*或*“使用我的 Sarah 品牌声音”。* 代理会根据名称和新近度解析资产。
+
+### 预先选择正确的格式
+
+如果您有特定的用例，请提及输出格式：
+
+- *“渲染为 mp4”* — 默认，社交​​媒体
+- *“使用 alpha 渲染到 webm”* — 稍后将合成的透明叠加层
+- *“渲染为 mov for After Effects”* — 用于编辑的 ProRes
+
+## 调试
+
+### 使用 MCP Inspector 检查 MCP
+
+对于构建集成或调试工具响应的开发人员，MCP Inspector 可让您准确查看公开的工具以及它们返回的内容：
+
+```bash
+npx @modelcontextprotocol/inspector npx -y mcp-remote https://mcp.heygen.com/mcp/hyperframes
+```
+
+在检查器的浏览器选项卡中完成 OAuth 流程。经过身份验证后，您可以使用自定义参数调用每个工具并查看原始响应，包括 `tool_data` 和 `widget_data`。
+
+### 观看进度通知
+
+MCP 在长时间运行的 `compose` 和 `render_video` 调用期间发出 MCP `notifications/progress` 事件。主机（Claude.ai 或 ChatGPT）内联显示它们：
+
+```
+You:    "make me a 30-second product intro"
+Agent:  [calls compose]
+  ↳ "Drafting outline..."           ← progress notification
+  ↳ "Selecting voice and style..."  ← progress notification
+  ↳ "Generating HTML..."            ← progress notification
+  ↳ "Rendering preview frame..."    ← progress notification
+  ↳ [composition + player widget]
+Agent:  "Here's your video — [player]"
+```
+
+如果进度在中途停止，则运行失败。代理的下一条消息应该解释出了什么问题。
+
+### 常见问题
+
+<AccordionGroup>
+  <Accordion title="OAuth 不断失败或循环">
+    验证您使用的是生产 URL：`https://mcp.heygen.com/mcp/hyperframes`。开发 URL (`mcp.dev.heygen.com`) 仅接受开发帐户。
+
+    如果 OAuth 完成，但您看到“未授权”错误，则您的 HeyGen 帐户可能无权访问 MCP — 请联系支持人员或检查您的级别。
+  </Accordion>
+
+  <Accordion title="渲染卡住或永远无法完成">
+    渲染通常在 10-90 秒内完成，具体取决于长度、fps 和格式。
+
+    如果 `get_render_status` 显示 `status: rendering` 超过 5 分钟，则说明有问题。尝试：
+
+    1. 开始一个新的聊天线程
+    2. 运行 `compose("regenerate this composition")` — 底层组合可能引用无法加载的资产
+    3. 如果问题仍然存在，请在 [github.com/heygen-com/hyperframes/issues](https://github.com/heygen-com/hyperframes/issues) 上提交问题，包括 `render_video` 中的 `job_id`
+  </Accordion>
+
+  <Accordion title='"Composition not found" error'>
+    `composition_id` 归创建它的 HeyGen 空间（帐户）所有。如果您登录到不同的空间，则无法访问其他空间的作品。运行 `list_compositions` 查看您当前帐户中可用的内容。
+  </Accordion>
+
+  <Accordion title="播放器小部件显示空白或永远加载">
+    通常是小部件和 `mcp.heygen.com` 之间的暂时连接问题。刷新聊天或再次致电 `get_composition`。
+
+    如果这种情况持续存在，您的作品可能引用了无法上传的媒体资产 - 使用 `compose("regenerate this")` 重新创建该作品。
+  </Accordion>
+
+  <Accordion title="积分用完">
+    当您的积分耗尽时，MCP 将返回错误并包含升级 URL。访问 [heygen.com/pricing](https://heygen.com/pricing) 升级您的等级。
+  </Accordion>
+
+  <Accordion title="主机中的工具调用超时">
+    对于复杂的提示，`compose` 运行可能需要 30 秒以上。如果您的客户端在响应返回之前超时，则底层运行可能仍在进行中 - 等待 30 秒并运行 `list_compositions`。构图可能已经创建。
+  </Accordion>
+
+  <Accordion title="代理忽略了我的部分提示">
+    与细粒度的像素定位相比，代理更喜欢结构决策（调色板、布局、运动）。如果特定的编辑没有成功，请尝试更直接地重新措辞：
+
+    - 效果较差：*“标题有点不对劲”*
+    - 更有效：*“将标题向下移动 40px，并将其权重增加到 800”*
+
+    对于像素精确控制，请使用[开源 CLI](/quickstart) — MCP 针对快速自然语言迭代进行了优化。
+  </Accordion>
+</AccordionGroup>
+
+### 报告问题
+
+对于错误或功能请求，请在 [github.com/heygen-com/hyperframes/issues](https://github.com/heygen-com/hyperframes/issues) 上提交问题。包括：
+
+- 您使用的提示
+- `composition_id` 和 `job_id`（如果适用）- 这些在工具响应详细信息中可见
+- 描述您的预期与发生的情况
+- 主机（Claude.ai 网络/桌面、ChatGPT 等）
+
+## 局限性
+
+- **仅云渲染。** 所有渲染都在 HeyGen 基础设施上运行。如果需要本地渲染，请使用 [CLI](/quickstart)。
+- **单用户。** 每个作品均由一个 HeyGen 帐户拥有。 v1 中没有团队共享。
+- **不能通过聊天上传二进制文件。** 您可以引用已通过 Web UI 上传到 HeyGen 的资源，但 MCP 目前不接受通过聊天上传新文件。首先通过 [app.heygen.com](https://app.heygen.com) 上传，然后按名称引用资产。
+- **长宽比：** `16:9`、`9:16`、`1:1`、`4:5`。其他比率回落到最接近的匹配。
+- **没有细粒度的编辑工具。** 编辑通过代理进行。对于像素精确控制，请使用 [CLI](/quickstart) 和 Claude Code 或 Cursor 等编码代理。
+- **小部件渲染需要支持 MCP 小部件的主机。** Claude.ai Web/桌面和 ChatGPT (Apps SDK) 目前支持小部件。纯文本 MCP 客户端（Claude Code CLI、Cursor、Windsurf）将看到可点击的预览 URL — 完整的文本模式支持已在路线图上。
+
+## 这与开源框架有何关系
+
+[HyperFrames 本身是开源的](https://github.com/heygen-com/hyperframes) — HTML 合成格式、CLI、渲染器和播放器。您可以在本地使用 HyperFrame，无需 MCP。
+
+MCP 是 HeyGen 托管的产品，包含：
+
+- HyperFrames 合成代理（创作合成的法学硕士）
+- HeyGen 的云渲染管道
+- HeyGen 的语音/TTS/资源库
+- OAuth、积分和层级管理
+
+| 你想要…… | 使用… |
+|---|---|
+| 零本地安装，快速自然语言创作 | MCP |
+| 像素精确控制、自定义渲染、自托管 | [CLI](/quickstart) |
+| 两个都 | 使用 MCP 进行创作，然后使用 CLI 下载并优化（计划导出功能） |
+
+## 后续步骤
+
+<CardGroup cols={2}>
+  <Card title="快速入门" href="/quickstart">
+    使用开源 CLI 在本地尝试 HyperFrames。
+  </Card>
+  <Card title="提示指南" href="/guides/prompting">
+    使用 AI 代理时获得最佳结果的技巧。
+  </Card>
+  <Card title="目录" href="/catalog/blocks/data-chart">
+    浏览代理从中提取的 50 多个即用型块。
+  </Card>
+  <Card title="示例" href="/examples">
+    您可以克隆的参考作品。
+  </Card>
+</CardGroup>

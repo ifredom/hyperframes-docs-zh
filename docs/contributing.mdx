@@ -1,0 +1,162 @@
+---
+title: 贡献
+description: "如何为超框架做出贡献。"
+---
+
+感谢您有兴趣为超框架做出贡献！本指南涵盖了设置、运行测试和提交拉取请求所需的一切。
+
+## 入门
+
+<Steps>
+  <Step title="分叉和克隆">
+    在 GitHub 上分叉存储库，然后克隆您的分叉：
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/hyperframes.git
+    cd hyperframes
+    ```
+  </Step>
+  <Step title="安装依赖项">
+    Hyperframes 使用 [bun](https://bun.sh/) 进行包管理：
+    ```bash
+    bun install
+    ```
+  </Step>
+  <Step title="构建所有包">
+    构建 monorepo 以确保一切都能编译：
+    ```bash
+    bun run build
+    ```
+  </Step>
+  <Step title="经营工作室">
+    启动开发服务器来验证您的设置：
+    ```bash
+    bun run dev
+    ```
+    如果工作室在 `http://localhost:3000` 打开并提供预览，则您的环境已准备就绪。
+  </Step>
+  <Step title="创建分支">
+    为您的工作创建一个功能分支：
+    ```bash
+    git checkout -b my-feature
+    ```
+  </Step>
+</Steps>
+
+## 发展
+
+### 常用命令
+
+```bash
+bun install                          # Install all dependencies
+bun run dev                          # Start the studio (composition editor + live preview)
+bun run build                        # Build all packages
+bun run --filter '*' typecheck       # Type-check all packages
+```
+
+### 工作室编辑工作
+
+如果您要更改 Studio 的可视化编辑界面，请阅读
+[Studio 手动 DOM 编辑](/contributing/studio-manual-dom-editing) 之前
+编辑代码。检查员有意仅公开其可以进行的交互
+安全地保留回 HTML，因此更改应保留功能门，
+源修补模型和记录的限制。
+
+### 运行测试
+
+<CodeGroup>
+```bash Core
+bun run --filter @hyperframes/core test
+```
+```bash Engine
+bun run --filter @hyperframes/engine test
+```
+```bash Runtime Contract
+bun run --filter @hyperframes/core test:hyperframe-runtime-ci
+```
+```bash Producer (Docker)
+cd packages/producer && bun run docker:build:test && bun run docker:test
+```
+</CodeGroup>
+
+### 运行所有测试
+
+```bash
+bun run --filter '*' test
+```
+
+## 套餐
+
+| 包裹 | 小路 | 描述 |
+|---------|------|-------------|
+| [`@hyperframes/core`](/packages/core) | `packages/core` | 类型、HTML 生成、运行时、linter |
+| [`@hyperframes/engine`](/packages/engine) | `packages/engine` | 可搜索的页面到视频捕获引擎 |
+| [`@hyperframes/producer`](/packages/producer) | `packages/producer` | 完整的渲染管道（捕获+编码） |
+| [`@hyperframes/studio`](/packages/studio) | `packages/studio` | 作文编辑器 UI |
+| [`hyperframes`](/packages/cli) | `packages/cli` | 用于创建、预览和渲染的 CLI |
+
+## 做什么工作
+
+不知道从哪里开始？以下是一些想法：
+
+- **好的第一个问题** - 在 GitHub 上查找标记为 `good first issue` 的问题
+- **文档** — 改进文档、添加示例、修复拼写错误
+- **Linter 规则** — 添加新规则以捕获更多组合错误
+- **示例** — 创建新的入门示例
+- **错误修复** — 检查问题跟踪器以获取报告的错误
+
+## 请求请求
+
+### 提交格式
+
+对所有提交和 PR 标题使用 [常规提交](https://www.conventionalcommits.org/) 格式：
+
+```
+feat: add timeline export
+fix: resolve seek overflow at composition boundary
+docs: add GSAP easing examples
+refactor: extract frame buffer pool into shared module
+test: add regression test for nested composition timing
+```
+
+### CI 要求
+
+在合并您的 PR 之前，必须满足以下所有条件：
+
+- **构建** — `bun run build` 成功
+- **类型检查** — `bun run --filter '*' typecheck` 报告没有错误
+- **测试** — 所有测试套件均通过
+- **语义 PR 标题** — PR 标题遵循传统的提交格式
+
+### 审核流程
+
+- PR 需要至少 1 次维护者的批准
+- 保持 PR 的重点——每个 PR 一项功能或修复
+- 将仅限 alpha 的 PR 定位在 `next` 而不是 `main`；看
+  分行政策详情【发布渠道】(/contributing/release-channels)
+- 包括对更改内容和原因的清晰描述
+- 添加新功能和错误修复的测试
+
+## 报告问题
+
+- 使用 [GitHub Issues](https://github.com/heygen-com/hyperframes/issues) 进行错误报告和功能请求
+- 在创建新问题之前先搜索现有问题
+- 对于错误报告，包括：
+  - 重现步骤
+  - 预期行为与实际行为
+  - HyperFrames版本 (`npx hyperframes info`)
+  - 操作系统和 Node.js 版本
+
+## 社区
+
+<CardGroup cols={2}>
+  <Card title="GitHub 问题" icon="github" href="https://github.com/heygen-com/hyperframes/issues">
+    报告错误、请求功能并讨论想法。
+  </Card>
+  <Card title="行为守则" icon="handshake" href="https://github.com/heygen-com/hyperframes/blob/main/CODE_OF_CONDUCT.md">
+    我们的社区标准和期望。
+  </Card>
+</CardGroup>
+
+## 执照
+
+通过贡献，您同意您的贡献将根据 [Apache 2.0 许可证](https://github.com/heygen-com/hyperframes/blob/main/LICENSE) 获得许可。

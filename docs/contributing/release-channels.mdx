@@ -1,0 +1,71 @@
+---
+title: 发布渠道
+description: HyperFrames 如何将仅 alpha 版本的工作排除在稳定版本之外。
+---
+
+HyperFrames 发布了两个发布渠道：
+
+- 稳定版本使用 `0.4.24` 等版本并发布到 npm `latest` dist-tag。
+- 预发布使用 `0.4.24-alpha.1` 等版本，并发布到由预发布后缀命名的 npm dist 标签，例如 `alpha`。
+
+## 分行政策
+
+使用分支分离来决定哪些代码适合每个发布通道。
+Dist-tags 仅控制 npm install 默认值；他们不会从包中删除代码。
+
+- `main` 是稳定/可释放的。任何合并到 `main` 的内容都有资格获得 `latest`。
+- `release/v*` 分支用于稳定的补丁版本和修补程序。
+- `next`、`alpha`、`beta`、`rc`、`canary` 和 `prerelease/*` 分支用于预发布集成。
+
+如果某个功能应该仅在 alpha 版本中发布，请将该 PR 合并或重新定位到预发布分支而不是 `main`。
+
+## 稳定发布
+
+稳定版本必须可从 `origin/main` 或 `origin/release/v*` 访问。
+在创建发布提交之前准备并查看发行说明：
+
+```bash
+bun run release:prepare <version>
+```
+
+第一次运行时， `release:prepare` 起草缺少的变更日志工件并以非零值退出以进行审查，因此链接的发布命令在标记之前停止。重写生成的 TODO 摘要后，重新运行相同的命令来创建发布提交和标记。
+
+请参阅[变更日志流程](/contributing/changelog-process) 了解完整的工作流程。对于稳定版本，当维护人员直接运行较低级别的发布命令时，`bun run set-version <version>` 仍然强制执行此检查点。
+
+```bash
+bun run release:prepare <version>
+git push origin main --tags
+```
+
+对于修补程序，从最后一个稳定标签分支，仅挑选修复程序，发布补丁版本，然后将相同的修复程序合并或挑选回预发布分支。
+
+## 阿尔法版本
+
+Alpha 版本必须可从预发布分支（例如 `origin/next` 或 `origin/alpha`）访问。
+当预发行版包含用户应该了解的更改时，请使用相同的更改日志草稿工作流程。
+
+```bash
+git checkout next
+bun run set-version 0.4.25-alpha.1
+git push origin next
+git push origin v0.4.25-alpha.1
+```
+
+消费者可以显式安装 alpha 版本：
+
+```bash
+npm install hyperframes@alpha
+npm install @hyperframes/core@alpha
+```
+
+## CI护栏
+
+发布工作流程在发布之前验证发布渠道边界：
+
+- 稳定版本必须使用 `latest` 发布。
+- 预发行版本必须使用预发行 dist 标签发布，例如 `alpha`。
+- 稳定标签必须可从 `main` 或 `release/v*` 访问。
+- 预发布标签必须可从预发布分支访问。
+- 合并的 `release/vX.Y.Z` PR 仅发布稳定版本。
+
+Error 500 (Server Error)!!1500.That’s an error.There was an error. Please try again later.That’s all we know.

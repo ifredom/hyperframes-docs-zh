@@ -1,0 +1,186 @@
+---
+title: 为目录做出贡献
+description: 如何将块和组件添加到 HyperFrames 注册表中。
+---
+
+您的代理已经知道如何构建视频组件。它编写 HTML。 HyperFrames 渲染它。注册表是已构建的所有内容的集合——52 个区块，并且还在不断增加。
+
+本指南向您展示如何添加它。
+
+<Info>
+**快速版本** — 分叉存储库。编写一个带有暂停的 GSAP 时间线的 HTML 文件。添加 `registry-item.json`。运行 `hyperframes lint` + `validate`。使用 `npx hyperframes publish` 发布。打开 PR。
+</Info>
+
+## 为什么要贡献？
+
+注册表中的每个块之所以存在，是因为有人需要它并构建了它。当您添加一个块时，每个 HyperFrames 用户都可以通过一个命令获取它：
+
+```bash
+npx hyperframes add instagram-follow
+```
+
+注册表不断增长，HyperFrames 变得更加有用，您的作品将交付给每个人。
+
+## 两条路
+
+### 想法（无代码）
+
+您比任何人都先发现视觉趋势。这才是最有价值的贡献。
+
+- 屏幕录制来自 TikTok/YouTube 尚不存在的字幕样式
+- 使用 Figma 绘制下三分之一的字体、颜色和时间
+- 安装组件，预览它，报告感觉不对劲
+
+在 [GitHub](https://github.com/heygen-com/hyperframes/issues) 上打开一个问题并提供视觉参考。标记为 `component-request`。
+
+<Tip>创意的门槛很低。我们宁愿有 100 个，然后打造最好的 10 个。</Tip>
+
+### 构建它
+
+每个块都是一个 HTML 文件。没有构建步骤，没有框架。
+
+如果您使用具有 HyperFrames 技能的 Claude Code：
+
+> “我想贡献一个新的过渡，看起来像\[描述\]”
+
+`/contribute-catalog` 技能搭建结构、验证、渲染预览、发布到 [hyperframes.dev](https://hyperframes.dev) 并准备 PR。
+
+## 注册表里有什么
+
+**块** (`registry/blocks/`) — 完整的独立组合。固定尺寸，固定持续时间。字幕样式、视觉特效、标题卡、转场。
+
+**组件** (`registry/components/`) — 可重用的片段。无固定尺寸。 CSS 效果、文本处理、适合任何构图的叠加。
+
+### 结构
+
+```
+registry/blocks/my-block/
+  my-block.html           ← the composition
+  registry-item.json      ← metadata
+```
+
+### 注册表项.json
+
+```json
+{
+  "$schema": "https://hyperframes.heygen.com/schema/registry-item.json",
+  "name": "my-block",
+  "type": "hyperframes:block",
+  "title": "My Block",
+  "description": "What this block does in one sentence",
+  "tags": ["category", "subcategory"],
+  "dimensions": { "width": 1920, "height": 1080 },
+  "duration": 5,
+  "files": [
+    {
+      "path": "my-block.html",
+      "target": "compositions/my-block.html",
+      "type": "hyperframes:composition"
+    }
+  ]
+}
+```
+
+## 规则
+
+每个注册表项必须满足以下五件事：
+
+<Steps>
+  <Step title="确定性">
+    没有 `Math.random()`，没有 `Date.now()`。仅使用种子 PRNG。
+  </Step>
+  <Step title="暂停的时间线">
+    `gsap.timeline({ paused: true })`。播放器控制播放。
+  </Step>
+  <Step title="注册时间表">
+    `window.__timelines["id"]` 必须匹配 `data-composition-id`。
+  </Step>
+  <Step title="没有请求动画帧">
+    对 Three.js/WebGL 场景使用 `tl.eventCallback("onUpdate", render)`。
+  </Step>
+  <Step title="字幕上的硬杀">
+    `tl.set(el, { opacity: 0, visibility: "hidden" }, group.end)` — 没有残留文本。
+  </Step>
+</Steps>
+
+<Warning>
+破坏其中任何一个，渲染将无法重现。渲染器通过寻找时间线来捕获每一帧——如果你的动画依赖于实时或随机状态，它就会中断。
+</Warning>
+
+## 品质吧
+
+并非所有内容都属于注册表。酒吧是生产质量。
+
+| 类型 | 最低标准 |
+|------|-----------------|
+| 字幕 | 96px+ 字体、文字描边/阴影、防溢出 |
+| 视觉特效 | 解决从头开始需要 4 个多小时的问题 |
+| 过渡 | 比 CSS 更平滑 — 如果不透明度 0→1 有效，则它不是过渡 |
+| 积木 | 专业人士会在客户项目中使用它吗？ |
+
+### 常见拒绝原因
+
+1. **“看起来像一个演示”** - 旋转立方体不是组件
+2. **“文本不可读”** — 字体太小，没有对比度处理
+3. **“非确定性”** — `Math.random()` 或 `Date.now()`
+4. **“未找到时间线”** — HTML 和 JS 之间的 ID 不匹配
+5. **“作为子组合而中断”** — 元素 ID 发生冲突（为所有内容添加前缀）
+
+## 工作流程
+
+<Steps>
+  <Step title="分叉并创建">
+    分叉 [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes) 并创建您的块目录：
+    ```bash
+    mkdir -p registry/blocks/your-block
+    ```
+  </Step>
+  <Step title="写下你的区块">
+    创建 HTML 组合和 `registry-item.json`。使用上面的模板。
+  </Step>
+  <Step title="证实">
+    ```bash
+    hyperframes lint
+    hyperframes validate
+    npx oxfmt your-block.html
+    ```
+  </Step>
+  <Step title="更新注册表">
+    ```bash
+    # Add to registry index
+    # Update registry/registry.json
+    npx tsx scripts/generate-catalog-pages.ts
+    ```
+  </Step>
+  <Step title="渲染预览">
+    ```bash
+    hyperframes render -o preview.mp4
+    ```
+  </Step>
+  <Step title="发布和公关">
+    ```bash
+    npx hyperframes publish
+    ```
+    使用 [hyperframes.dev](https://hyperframes.dev) 预览链接打开 PR。
+  </Step>
+</Steps>
+
+**外部贡献者：** 将预览 MP4 附加到您的 PR。维护人员负责处理目录映像。
+
+**HeyGen 内部：** 运行 `scripts/upload-docs-images.sh` 推送目录 PNG。
+
+## 现在需要什么
+
+这些都是注册表中的空白。如果您正在寻找要构建的东西，请从这里开始。
+
+| 类别 | 差距 | 困难 |
+|----------|-----|-----------|
+| 字幕 | 带剪辑路径扫描的卡拉 OK（CapCut 风格） | 中等的 |
+| 字幕 | RTL 语言布局（阿拉伯语、希伯来语） | 中等的 |
+| 下三分之一 | 播客/访谈的 10 种变体 | 简单的 |
+| 下三分之一 | 新闻滚动条/滚动文本栏 | 简单的 |
+| 地图 | 动画路线图、区域亮点、位置图钉 | 中等的 |
+| 视觉特效 | 带 HDRI 的产品转盘 | 难的 |
+| 视觉特效 | 物理粒子系统（碰撞、重力） | 难的 |
+| 过渡 | 变形形状过渡 | 难的 |
+| 日期可视化 | 桑基/流程图 | 中等的 |

@@ -1,0 +1,446 @@
+---
+title: "@hyperframes/核心"
+description: "类型、HTML 生成、运行时和 linter — 所有其他包所依赖的基础。"
+---
+
+核心包提供了所有其他 Hyperframes 包构建的基础类型、HTML 解析/生成、运行时和组合 linter。如果您正在构建工具、编写自定义集成或扩展 Hyperframes 本身，那么这就是您需要的包。
+
+```bash
+npm install @hyperframes/core
+```
+
+## 何时使用
+
+<Tip>
+  **大多数用户不需要直接安装 `@hyperframes/core`。** [CLI](/packages/cli)、[生产者](/packages/producer) 和 [studio](/packages/studio) 包都内部依赖于 core。仅当您执行下列操作之一时才需要它。
+</Tip>
+
+**当您需要时使用 `@hyperframes/core`：**
+- 以编程方式进行 Lint 组合（CI 管道、编辑器插件）
+- 将 HTML 组合解析为结构化 TypeScript 对象
+- 从数据（例如，从 API 或 AI 代理）生成合成 HTML
+- 访问用于您自己的工具的 Hyperframes 类型系统
+- 将 Hyperframes 运行时嵌入自定义播放器
+
+**如果您愿意，请使用不同的包：**
+- 在浏览器中预览合成 — 使用 [CLI](/packages/cli) (`npx hyperframes preview`) 或 [studio](/packages/studio)
+- 将合成渲染为 MP4 — 使用 [CLI](/packages/cli) (`npx hyperframes render`) 或 [生产者](/packages/producer)
+- 从无头浏览器捕获帧 - 使用 [engine](/packages/engine)
+
+## 包裹出口
+
+核心包有四个入口点：
+
+| 进口 | 描述 |
+|--------|-------------|
+| `@hyperframes/core` | 类型、解析器、生成器、适配器、运行时实用程序 |
+| `@hyperframes/core/lint` | 组合短绒 |
+| `@hyperframes/core/compiler` | 时序编译器、HTML 编译器、捆绑器、静态防护 |
+| `@hyperframes/core/runtime` | 用于浏览器注入的预构建 IIFE 运行时 |
+
+## 类型
+
+核心类型系统对组合、时间线元素和变量进行建模：
+
+```typescript
+import type {
+  TimelineElement,
+  TimelineMediaElement,
+  TimelineTextElement,
+  TimelineCompositionElement,
+  TimelineElementType,       // "video" | "image" | "text" | "audio" | "composition"
+  CompositionSpec,
+  CompositionVariable,
+  CanvasResolution,          // "landscape" | "portrait" | "landscape-4k" | "portrait-4k" | "square" | "square-4k"
+  Orientation,               // "16:9" | "9:16"
+  FrameAdapter,
+  FrameAdapterContext,
+} from '@hyperframes/core';
+
+// Type guards
+import {
+  isTextElement,
+  isMediaElement,
+  isCompositionElement,
+  isStringVariable,
+  isNumberVariable,
+  isColorVariable,
+  isBooleanVariable,
+  isEnumVariable,
+} from '@hyperframes/core';
+
+// Constants
+import {
+  CANVAS_DIMENSIONS,        // { landscape: { width, height }, portrait: { width, height } }
+  TIMELINE_COLORS,
+  DEFAULT_DURATIONS,
+} from '@hyperframes/core';
+```
+
+### 变量类型
+
+组合可以公开动态内容的类型化变量：
+
+```typescript
+import type {
+  CompositionVariableType,   // "string" | "number" | "color" | "boolean" | "enum"
+  StringVariable,
+  NumberVariable,
+  ColorVariable,
+  BooleanVariable,
+  EnumVariable,
+} from '@hyperframes/core';
+```
+
+### 关键帧类型
+
+```typescript
+import type {
+  Keyframe,
+  KeyframeProperties,
+  ElementKeyframes,
+  StageZoom,
+  StageZoomKeyframe,
+} from '@hyperframes/core';
+
+import { getDefaultStageZoom } from '@hyperframes/core';
+```
+
+## 解析和生成 HTML
+
+HTML 和结构化数据之间的往返：
+
+```typescript
+import { parseHtml, generateHyperframesHtml } from '@hyperframes/core';
+import type { ParsedHtml, CompositionMetadata } from '@hyperframes/core';
+
+// Parse HTML into structured data
+const parsed: ParsedHtml = parseHtml(htmlString);
+// parsed.elements, parsed.gsapScript, parsed.styles, parsed.resolution, parsed.keyframes
+
+// Extract composition metadata
+import { extractCompositionMetadata } from '@hyperframes/core';
+const meta: CompositionMetadata = extractCompositionMetadata(htmlString);
+// meta.id, meta.duration, meta.width, meta.height, meta.variables
+//
+// Variable metadata is declared on the document root, for example:
+// <html
+//   data-composition-id="card"
+//   data-composition-duration="3"
+//   data-composition-variables='[{"id":"title","label":"Title","type":"string","default":"Hello"}]'
+// >
+
+// Read resolved variables inside a composition (declared defaults +
+// CLI overrides + per-instance host data-variable-values):
+import { getVariables } from '@hyperframes/core';
+const { title } = getVariables<{ title: string }>();
+
+// Validate CLI / host overrides against the declared schema:
+import { validateVariables, formatVariableValidationIssue } from '@hyperframes/core';
+const issues = validateVariables({ title: 'Hello', count: 'three' }, meta.variables);
+for (const issue of issues) {
+  console.warn(formatVariableValidationIssue(issue));
+}
+
+// Generate HTML from structured data
+const html = generateHyperframesHtml(elements, {
+  animations,
+  styles,
+  resolution: 'landscape',
+  compositionId: 'my-video',
+});
+```
+
+### 修改 HTML
+
+```typescript
+import {
+  updateElementInHtml,
+  addElementToHtml,
+  removeElementFromHtml,
+  validateCompositionHtml,
+} from '@hyperframes/core';
+
+// Update an element's properties
+const updatedHtml = updateElementInHtml(html, 'el-1', { start: 5 });
+
+// Add a new element
+const newHtml = addElementToHtml(html, newElement);
+
+// Remove an element
+const cleanHtml = removeElementFromHtml(html, 'el-1');
+
+// Validate HTML structure
+const result = validateCompositionHtml(html);
+// result.valid, result.errors
+```
+
+### GSAP脚本解析
+
+```typescript
+import {
+  parseGsapScript,
+  serializeGsapAnimations,
+  updateAnimationInScript,
+  addAnimationToScript,
+  removeAnimationFromScript,
+  getAnimationsForElement,
+  validateCompositionGsap,
+  keyframesToGsapAnimations,
+  gsapAnimationsToKeyframes,
+  SUPPORTED_PROPS,            // animatable properties
+  SUPPORTED_EASES,            // available easing functions
+} from '@hyperframes/core';
+import type { GsapAnimation, GsapMethod, ParsedGsap } from '@hyperframes/core';
+
+// Parse GSAP script into structured animations
+const parsed: ParsedGsap = parseGsapScript(scriptContent);
+// parsed.animations, parsed.timelineVar, parsed.preamble, parsed.postamble
+
+// Serialize back to script
+const script = serializeGsapAnimations(parsed.animations);
+```
+
+### HTML 生成
+
+```typescript
+import {
+  generateHyperframesHtml,
+  generateGsapTimelineScript,
+  generateHyperframesStyles,
+} from '@hyperframes/core';
+
+// Generate a complete HTML composition
+const html = generateHyperframesHtml(elements, options);
+
+// Generate just the GSAP script
+const script = generateGsapTimelineScript(animations, options);
+
+// Generate CSS styles
+const { coreCss, customCss, googleFontsLink } = generateHyperframesStyles(
+  elements, 'landscape', customStyles
+);
+```
+
+### 模板实用程序
+
+```typescript
+import {
+  generateBaseHtml,
+  getStageStyles,
+  GSAP_CDN,
+  BASE_STYLES,
+  ELEMENT_BASE_STYLES,
+  MEDIA_STYLES,
+  TEXT_STYLES,
+  ZOOM_CONTAINER_STYLES,
+} from '@hyperframes/core';
+
+// Generate base HTML structure for a resolution
+const baseHtml = generateBaseHtml('landscape');
+const styles = getStageStyles('portrait');
+```
+
+## 短绒
+
+组合检查会检查可能导致渲染失败或意外行为的结构问题。您可以使用 `npx hyperframes lint` 从 CLI 运行它，或以编程方式调用它：
+
+```typescript
+import { lintHyperframeHtml, lintMediaUrls } from '@hyperframes/core/lint';
+import type {
+  HyperframeLintResult,
+  HyperframeLintFinding,
+  HyperframeLintSeverity,     // "error" | "warning"
+  HyperframeLinterOptions,
+} from '@hyperframes/core/lint';
+
+const result: HyperframeLintResult = lintHyperframeHtml(html, { filePath: 'index.html' });
+// result.ok, result.errorCount, result.warningCount, result.findings
+
+for (const finding of result.findings) {
+  console.log(finding.severity, finding.code, finding.message);
+  // finding.file, finding.selector, finding.elementId, finding.fixHint, finding.snippet
+}
+
+// Additional media URL validation
+const mediaFindings = lintMediaUrls(result.findings);
+```
+
+检测到的问题包括：
+
+- 缺少时间表注册 (`window.__timelines`)
+- 未静音的视频元素（导致自动播放失败）
+- 定时可见元素上缺少 `class="clip"`
+- 已弃用的属性名称
+- 缺少组合维度（`data-width`、`data-height`）
+- 对不存在的剪辑 ID 的无效 `data-start` 引用
+
+<Info>
+  有关 linter 捕获的内容以及如何解决每个问题的完整列表，请参阅 [常见错误](/guides/common-mistakes) 和 [故障排除](/guides/troubleshooting)。
+</Info>
+
+## 编译器
+
+编译器子包处理时序解析、HTML 编译和捆绑：
+
+```typescript
+// Timing compiler (browser-safe — no Node.js dependencies)
+import {
+  compileTimingAttrs,
+  injectDurations,
+  extractResolvedMedia,
+  clampDurations,
+} from '@hyperframes/core/compiler';
+import type {
+  UnresolvedElement,
+  ResolvedDuration,
+  ResolvedMediaElement,
+  CompilationResult,
+} from '@hyperframes/core/compiler';
+
+// Compile timing attributes from HTML
+const compiled: CompilationResult = compileTimingAttrs(html);
+
+// Inject resolved durations back into HTML
+const updatedHtml = injectDurations(html, compiled.durations);
+
+// Extract resolved media elements
+const media: ResolvedMediaElement[] = extractResolvedMedia(html);
+```
+
+```typescript
+// HTML compiler (Node.js — requires media probing)
+import { compileHtml } from '@hyperframes/core/compiler';
+import type { MediaDurationProber } from '@hyperframes/core/compiler';
+
+const prober: MediaDurationProber = async (src) => getDuration(src);
+const compiledHtml = await compileHtml(html, prober);
+```
+
+```typescript
+// HTML bundler (Node.js — bundles to single file)
+import { bundleToSingleHtml } from '@hyperframes/core/compiler';
+import type { BundleOptions } from '@hyperframes/core/compiler';
+
+const bundled = await bundleToSingleHtml({ entryPath: './index.html', inline: true });
+```
+
+```typescript
+// Static guard — validate HTML contract
+import { validateHyperframeHtmlContract } from '@hyperframes/core/compiler';
+import type {
+  HyperframeStaticGuardResult,
+  HyperframeStaticFailureReason,
+} from '@hyperframes/core/compiler';
+
+const guard: HyperframeStaticGuardResult = validateHyperframeHtmlContract(html);
+// guard.ok, guard.failures[]
+// Failure reasons: "missing_composition_id" | "missing_composition_dimensions"
+//   | "missing_timeline_registry" | "invalid_script_syntax"
+//   | "invalid_static_hyperframe_contract"
+```
+
+## 运行时
+
+Hyperframes 运行时管理浏览器中的播放、搜索和剪辑生命周期。核心包提供了用于构建和加载运行时的实用程序：
+
+```typescript
+import {
+  loadHyperframeRuntimeSource,
+  buildHyperframesRuntimeScript,
+  HYPERFRAME_RUNTIME_ARTIFACTS,
+  HYPERFRAME_RUNTIME_CONTRACT,
+  HYPERFRAME_RUNTIME_GLOBALS,
+  HYPERFRAME_BRIDGE_SOURCES,
+  HYPERFRAME_CONTROL_ACTIONS,
+} from '@hyperframes/core';
+import type {
+  HyperframeControlAction,
+  HyperframesRuntimeBuildOptions,
+} from '@hyperframes/core';
+
+// Load the pre-built runtime IIFE
+const runtimeSource = loadHyperframeRuntimeSource();
+
+// Build a custom runtime script
+const script = buildHyperframesRuntimeScript(options);
+```
+
+预构建的运行时 IIFE 可直接导入：
+
+```typescript
+import runtime from '@hyperframes/core/runtime';
+```
+
+## 框架适配器
+
+核心包定义了[Frame Adapter](/concepts/frame-adapters)接口并提供了内置的GSAP适配器：
+
+```typescript
+import { createGSAPFrameAdapter } from '@hyperframes/core';
+import type {
+  FrameAdapter,
+  FrameAdapterContext,
+  GSAPTimelineLike,
+  CreateGSAPFrameAdapterOptions,
+} from '@hyperframes/core';
+
+// Create a GSAP frame adapter
+const adapter: FrameAdapter = createGSAPFrameAdapter({
+  id: 'my-composition',
+  fps: 30,
+  timeline: gsapTimeline,
+});
+
+// Adapter lifecycle
+await adapter.init?.(context);
+const durationFrames = adapter.getDurationFrames();
+await adapter.seekFrame(42);
+await adapter.destroy?.();
+```
+
+## 媒体实用程序
+
+```typescript
+import {
+  MEDIA_VISUAL_STYLE_PROPERTIES,
+  copyMediaVisualStyles,
+  quantizeTimeToFrame,
+} from '@hyperframes/core';
+import type { MediaVisualStyleProperty } from '@hyperframes/core';
+
+// Quantize a time value to the nearest frame boundary
+const frameTime = quantizeTimeToFrame(5.033, 30); // → 5.033... snapped to frame
+
+// Copy visual styles between media elements
+copyMediaVisualStyles(fromElement, toElement);
+```
+
+## 选取器API
+
+对于编辑器 UI 中的元素选择：
+
+```typescript
+import type {
+  HyperframePickerApi,
+  HyperframePickerBoundingBox,
+  HyperframePickerElementInfo,
+} from '@hyperframes/core';
+```
+
+## 相关套餐
+
+<CardGroup cols={2}>
+  <Card title="命令行界面" icon="terminal" href="/packages/cli">
+    创建、预览、检查和渲染合成的最简单方法。
+  </Card>
+  <Card title="引擎" icon="gear" href="/packages/engine">
+    使用核心类型和运行时的低级帧捕获管道。
+  </Card>
+  <Card title="制片人" icon="film" href="/packages/producer">
+    完整的渲染管道构建在核心和引擎之上。
+  </Card>
+  <Card title="工作室" icon="palette" href="/packages/studio">
+    嵌入核心运行时进行预览的可视化合成编辑器。
+  </Card>
+</CardGroup>

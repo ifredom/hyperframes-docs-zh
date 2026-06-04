@@ -1,0 +1,231 @@
+---
+title: 网站到视频
+description: "捕获任何网站并通过单个提示将其转换为制作视频。"
+---
+
+为您的 AI 代理提供 URL 和创意方向。它捕获站点，提取品牌标识，编写脚本和故事板，生成画外音，构建动画作品，并提供可渲染的视频。
+
+```
+"Create a 20-second product launch video from https://linear.app.
+ Make it feel like an Apple keynote announcement."
+```
+
+## 入门
+
+<Steps>
+  <Step title="安装技巧">
+    技能可教会您的 AI 代理如何捕获网站并创建 HyperFrames 作品。安装一次——它们在会话中持续存在。
+
+    ```bash
+    npx skills add heygen-com/hyperframes
+    ```
+
+    适用于 [Claude Code](https://claude.ai/claude-code)、[Cursor](https://cursor.sh)、[Gemini CLI](https://github.com/google-gemini/gemini-cli) 和 [Codex CLI](https://github.com/openai/codex)。
+  </Step>
+  <Step title="提示您的代理人">
+    在任意目录中打开您的代理并描述您想要的视频：
+
+    ```
+    Create a 25-second product launch video from https://example.com. Bold, cinematic, dark theme energy.
+    ```
+
+    代理在看到 URL 和视频请求时加载技能，并运行完整的管道 - 捕获、设计、脚本、故事板、配音、构建、验证。
+
+    <Note>
+      当代理看到 URL 和视频请求时，也会自动触发此技能。
+    </Note>
+  </Step>
+  <Step title="预览">
+    ```bash
+    npx hyperframes preview
+    ```
+
+    在浏览器中打开视频。编辑自动重新加载。
+  </Step>
+  <Step title="渲染为 MP4">
+    ```bash
+    npx hyperframes render --output my-video.mp4
+    ```
+
+    ```
+    ✓ Captured 750 frames in 12.4s
+    ✓ Encoded to my-video.mp4 (25.0s, 1920×1080, 6.8MB)
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  您不需要手动运行 `npx hyperframes capture` — 该技能会指示代理进行捕获作为第一步。捕获命令记录在[下面](#capture-command)以供高级使用。
+</Note>
+
+## 管道如何运作
+
+该技能遵循 [Hyperframes pipeline](/guides/pipeline)：七个步骤，每个步骤都会生成一个命名工件，为下一个工件提供数据。
+
+| 步 | 输出 | 会发生什么 |
+|------|--------|-------------|
+| **捕获** | `capture/` | 提取屏幕截图、设计令牌、字体、资源、动画 |
+| **设计** | `DESIGN.md` | 品牌参考——颜色、排版、注意事项 |
+| **脚本** | `SCRIPT.md` | 带有挂钩、故事、证明、CTA 的旁白文本 |
+| **故事板** | `STORYBOARD.md` | 每节拍的创意方向——情绪、资产、动画、过渡 |
+| **画外音 + 计时** | `narration.wav` + `transcript.json` | 带有字级时间戳的 TTS 音频 |
+| **建造** | `compositions/*.html` | 动画 HTML 作品，每节拍一个 |
+| **证实** | 快照 PNG | 交货前目视验证 |
+
+请参阅[管道指南](/guides/pipeline)，了解每个步骤的详细演练、每个生成文件的内容以及如何在不重新运行整个管道的情况下进行迭代。该结构对于任何 Hyperframes 项目都很有用，而不仅仅是网站捕获。
+
+## 视频类型
+
+提示决定格式。包括持续时间和创意方向：
+
+| 类型 | 期间 | 例子 |
+|------|----------|---------|
+| 社交广告 | 10–15秒 | _“15 秒的 Instagram 片段。充满活力、快速剪辑。”_ |
+| 产品发布 | 20–30秒 | _“25 秒产品发布。苹果主题演讲能量。”_ |
+| 产品展示 | 30-60秒 | _“45 秒的游览展示了 3 个最重要的功能。”_ |
+| 品牌卷轴 | 15-30秒 | _“20 秒品牌视频。庆祝设计。”_ |
+| 功能公告 | 15–25秒 | _“强调新人工智能代理的功能公告。”_ |
+| 预告片 | 8–15秒 | _“10 秒预告片。超级简单。只是钩子。”_ |
+
+<Tip>
+  创意方向比格式更重要。 _“有趣、手工制作的感觉”_或_“黑暗、以开发人员为中心、显示代码”_塑造故事板并驱动代理做出的每一个视觉决策。
+</Tip>
+
+## 使用 Gemini Vision 丰富拍摄内容
+
+默认情况下，捕获使用 DOM 上下文描述资产 - 替代文本、附近的标题、CSS 类。添加 [Gemini API 密钥](https://aistudio.google.com/apikey)，以使用视觉进行更丰富的人工智能驱动的描述。
+
+在项目根目录中创建 `.env` 文件：
+
+```bash
+echo "GEMINI_API_KEY=your-key-here" > .env
+```
+
+<Tabs>
+  <Tab title="没有双子座">
+    ```
+    - hero-bg.png — 582KB, section: "Hero", above fold
+    ```
+    代理知道该文件存在以及它在页面上的位置，但不知道它是什么样子。
+  </Tab>
+  <Tab title="与双子座">
+    ```
+    - hero-bg.png — 582KB, A gradient wave in purple and blue sweeps
+      across a dark background, creating an aurora-like effect.
+    ```
+    代理知道图像实际显示的内容，从而可以在故事板中做出更好的创意决策。
+  </Tab>
+</Tabs>
+
+| 等级 | 速率限制 | 每张图像的成本 |
+|------|-----------|----------------|
+| 自由的 | 5转/分 | 自由的 |
+| 有薪酬的 | 2,000转/分钟 | ~$0.001 |
+
+在付费套餐中，拍摄 40 张图像的典型费用约为 **0.04 美元**。
+
+## 捕获命令
+
+该技能会自动运行捕获，但您可以直接运行它以进行预缓存、调试或使用视频制作之外的数据。
+
+```bash
+npx hyperframes capture https://stripe.com
+```
+
+```
+◇  Captured Stripe | Financial Infrastructure → captures/stripe-com
+
+  Screenshots: 12
+  Assets: 45
+  Sections: 15
+  Fonts: sohne-var
+```
+
+| 旗帜 | 默认 | 描述 |
+|------|---------|-------------|
+| `-o, --output` | `captures/<hostname>` | 输出目录 |
+| `--timeout` | `120000` | 页面加载超时（毫秒） |
+| `--skip-assets` | `false` | 跳过下载图像和字体 |
+| `--max-screenshots` | `24` | 最大截图数 |
+| `--json` | `false` | 输出结构化 JSON 以供编程使用 |
+
+### 捕获什么
+
+| 数据 | 描述 |
+|------|-------------|
+| **截图** | 视口在每个滚动深度捕获 - 基于页面高度的动态计数 |
+| **颜色** | 像素采样主色 + 计算样式，包括 oklch/lab 转换 |
+| **字体** | CSS 字体系列 + 下载的 woff2 文件 |
+| **资产** | 图像、具有语义名称的 SVG、Lottie 动画、视频预览 |
+| **文本** | 所有可见文本均按 DOM 顺序排列 |
+| **动画** | Web 动画 API、滚动触发动画、WebGL 着色器 |
+| **章节** | 包含标题、类型、背景颜色的页面结构 |
+| **商品交易顾问** | 通过类名称和文本模式检测到的按钮和链接 |
+
+## 快照命令
+
+从构建的视频中捕获关键帧作为 PNG - 无需完整渲染即可验证合成：
+
+```bash
+npx hyperframes snapshot my-project --at 2.9,10.4,18.7
+```
+
+| 旗帜 | 默认 | 描述 |
+|------|---------|-------------|
+| `--frames` | `5` | 均匀间隔的帧数 |
+| `--at` | — | 以秒为单位的逗号分隔时间戳 |
+| `--timeout` | `5000` | Ms 等待运行时初始化 |
+
+## 迭代
+
+您不需要重新运行整个管道来进行更改：
+
+- **编辑故事板** — `STORYBOARD.md` 是创意北极星。更改节拍的情绪或资产，然后要求代理重建该节拍。
+- **编辑合成** — 直接打开 `compositions/beat-3-proof.html` 并调整动画、颜色或布局。
+- **重建一个节拍** — _“用更多能量重建节拍 2。使用产品屏幕截图作为全屏背景。”_
+
+有关更多重入模式，请参阅[管道指南](/guides/pipeline#iterating)。
+
+## 故障排除
+
+<AccordionGroup>
+  <Accordion title="捕获超时">
+    增加具有 Cloudflare 或大量客户端渲染的站点的超时：
+
+    ```bash
+    npx hyperframes capture https://example.com --timeout 180000
+    ```
+  </Accordion>
+  <Accordion title="捕获的资产很少">
+    使用 Framer 等框架的网站通过 IntersectionObserver 延迟加载图像。捕获滚动​​页面以触发加载，但很长的页面可能会丢失底部附近的图像。添加 Gemini 密钥可以改进捕获资产的描述，但不会增加计数。
+  </Accordion>
+  <Accordion title="颜色看起来不对">
+    捕获使用像素采样与 DOM 计算样式相结合。深色网站应在调色板中显示深色。检查 `captures/<name>/screenshots/` 中的滚动屏幕截图以查看捕获实际看到的内容。
+  </Accordion>
+  <Accordion title="代理找不到技能">
+    验证技能是否已安装：
+
+    ```bash
+    npx skills add heygen-com/hyperframes
+    ```
+
+    用_“使用/网站到超框架技能”_ 来引导你的提示，以获得最可靠的结果。当代理看到 URL 和视频请求时，也会自动发现它。
+  </Accordion>
+</AccordionGroup>
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="管道" icon="list-check" href="/guides/pipeline">
+    此工作流程遵循规范的 7 步骤结构。
+  </Card>
+  <Card title="快速入门" icon="rocket" href="/quickstart">
+    刚接触HyperFrames？从这里开始。
+  </Card>
+  <Card title="GSAP动画" icon="wand-magic-sparkles" href="/guides/gsap-animation">
+    合成中使用的动画模式。
+  </Card>
+  <Card title="渲染" icon="film" href="/guides/rendering">
+    渲染为 MP4、MOV 或 WebM。
+  </Card>
+</CardGroup>

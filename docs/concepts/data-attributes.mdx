@@ -1,0 +1,106 @@
+---
+title: 数据属性
+description: "用于控制元素计时和行为的核心属性。"
+---
+
+HyperFrames使用 HTML 数据属性来控制时序、媒体播放和 [composition](/concepts/compositions) 结构。这些是每个视频的声明性构建块。
+
+## 时序属性
+
+| 属性 | 例子 | 描述 |
+|-----------|---------|-------------|
+| `data-start` | `"0"` 或 `"intro"` | 开始时间（以秒为单位），或 [相对计时](#relative-timing) 的剪辑 ID 参考 |
+| `data-duration` | `"5"` | 持续时间（以秒为单位）。图像所需。对于视频/音频可选（默认为源持续时间）。不用于组合物。 |
+| `data-track-index` | `"0"` | 时间线轨道编号。控制 z 顺序（较高 = 在前面）并将剪辑分组为行。同一轨道上的剪辑不能重叠。 |
+
+## 媒体属性
+
+| 属性 | 例子 | 描述 |
+|-----------|---------|-------------|
+| `data-media-start` | `"2"` | 媒体播放偏移/修剪点（以秒为单位）。默认值：`0` |
+| `data-volume` | `"0.8"` | 音频/视频音量，0到1 |
+| `data-has-audio` | `"true"` | 表示视频有音轨 |
+
+## 成分属性
+
+| 属性 | 例子 | 描述 |
+|-----------|---------|-------------|
+| `data-composition-id` | `"root"` | [composition](/concepts/compositions) 包装器的唯一 ID（每个组合都需要） |
+| `data-width` | `"1920"` | 构图宽度（以像素为单位） |
+| `data-height` | `"1080"` | 构图高度（以像素为单位） |
+| `data-composition-src` | `"./intro.html"` | 外部 [composition](/concepts/compositions) HTML 文件的路径 |
+| `data-variable-values` | `'{"title":"Hello"}'` | 传递给嵌套组合的值的 JSON 对象。在子组合内部，通过 `window.__hyperframes.getVariables()` 读取它们 - 运行时将它们分层在子组合自己的 `data-composition-variables` 默认值上，并在每个实例的基础上公开合并结果（可以使用不同的值多次嵌入相同的源）。 |
+| `data-composition-variables` | `'[{"id":"title","type":"string","label":"Title","default":"Hello"}]'` | 声明变量的 JSON 数组（`id`、`type`、`label`、`default`）。驱动 Studio 编辑 UI 并提供 `window.__hyperframes.getVariables()` 读取的默认值。 CLI 标志 `hyperframes render --variables '<json>'` 在顶级渲染时覆盖这些默认值；主机元素通过 `data-variable-values` 覆盖每个实例。 |
+
+## 元素可见性
+
+将 `class="clip"` 添加到所有定时元素，以便运行时可以管理其可见性生命周期：
+
+```html index.html
+<h1 id="title" class="clip"
+    data-start="0" data-duration="5" data-track-index="0">
+  Hello World
+</h1>
+```
+
+## 相对时序
+
+剪辑可以在其 `data-start` 属性中引用另一个剪辑的 `id` ，而不是计算绝对开始时间。这意味着“当剪辑结束时开始”：
+
+```html index.html
+<video id="intro" data-start="0" data-duration="10" data-track-index="0" src="..."></video>
+<video id="main" data-start="intro" data-duration="20" data-track-index="0" src="..."></video>
+<video id="outro" data-start="main" data-duration="5" data-track-index="0" src="..."></video>
+```
+
+`main` 解析为第 10 秒，`outro` 解析为第 30 秒。如果 `intro` 的持续时间发生变化，下游剪辑会自动移动。
+
+### 偏移（间隙和重叠）
+
+在 ID 之后添加 `+ N` 或 `- N` 以从引用剪辑的末尾偏移：
+
+```html index.html
+<!-- 2-second gap after intro -->
+<video id="scene-a" data-start="intro + 2" data-duration="20"
+       data-track-index="0" src="..."></video>
+
+<!-- 0.5-second overlap with intro (crossfade) -->
+<video id="scene-b" data-start="intro - 0.5" data-duration="20"
+       data-track-index="1" src="..."></video>
+```
+
+<Note>
+  重叠的剪辑必须位于不同的轨道上——同一轨道上的剪辑不能在时间上重叠。
+</Note>
+
+<Accordion title="相对时序规则和约束">
+  **仅限相同的合成** - 引用在剪辑的父级 [合成](/concepts/compositions) 内解析。您不能引用同级或父级合成中的剪辑。
+
+  **无循环引用** -- 如果 B 在 A 之后启动，则 A 无法在 B 之后启动。解析器检测到循环并抛出错误。
+
+  **引用的剪辑必须具有已知的持续时间** - 显式的 `data-duration` 或从源媒体推断的持续时间。如果引用的剪辑没有已知的持续时间，则无法解析引用。
+
+  **解析规则** -- 如果该值为有效数字，则将其视为绝对秒。否则它被解析为以下之一：
+  - `<id>` -- 该剪辑结束时开始
+  - `<id> + <number>` -- 在该剪辑结束后 N 秒开始
+  - `<id> - <number>` -- 在该剪辑结束前 N 秒开始
+
+  **链长度**——引用可以链接（`A` -> `B` -> `C`），但深度嵌套的链使时间线更难推理。为了便于阅读，将链保持在 3-4 级以下。
+</Accordion>
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="作文" icon="layer-group" href="/concepts/compositions">
+    合成如何使用数据属性来定义视频结构
+  </Card>
+  <Card title="HTML 架构参考" icon="book" href="/reference/html-schema">
+    包含每个元素详细信息的完整属性参考
+  </Card>
+  <Card title="GSAP动画" icon="wand-magic-sparkles" href="/guides/gsap-animation">
+    与数据属性驱动的时序一起对元素进行动画处理
+  </Card>
+  <Card title="常见错误" icon="triangle-exclamation" href="/guides/common-mistakes">
+    设置时间和属性时要避免的陷阱
+  </Card>
+</CardGroup>

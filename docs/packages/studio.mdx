@@ -1,0 +1,270 @@
+---
+title: "@hyperframes/工作室"
+description: "具有实时预览、时间线视图和热重载功能的可视化合成编辑器。"
+---
+
+studio 包提供了一个基于浏览器的可视化编辑器，用于创建和预览HyperFrames合成。它为您提供视频的实时预览、所有剪辑的可视时间轴以及用于搜索和播放的播放器控件 - 所有这些都会在您编辑 HTML 时实时更新。
+
+```bash
+npm install @hyperframes/studio
+```
+
+## 何时使用
+
+**当您需要时使用 `@hyperframes/studio`：**
+- 构建自定义合成编辑器 UI（例如，嵌入到您自己的 Web 应用程序中）
+- 将 Hyperframes 预览播放器集成到更大的产品中
+- 使用自定义面板、工具栏或集成扩展编辑器
+
+**如果您愿意，请使用不同的包：**
+- 在开发过程中预览合成 - 使用 [CLI](/packages/cli) (`npx hyperframes preview`)，它会为您启动工作室
+- 将合成渲染为 MP4 — 使用 [CLI](/packages/cli) 或 [生产者](/packages/producer)
+- 以编程方式捕获帧 — 使用 [engine](/packages/engine)
+
+<Tip>
+  **对于大多数开发工作流程，您不需要直接安装 studio。** 运行 `npx hyperframes preview` 通过热重载自动启动 studio。仅当您将编辑器嵌入到您自己的应用程序中时才安装 `@hyperframes/studio`。
+</Tip>
+
+## 运行工作室
+
+### 通过 CLI（推荐）
+
+```bash
+npx hyperframes preview
+```
+
+这将启动工作室开发服务器，在浏览器中打开您的作品，并监视文件更改。这是获得实时预览的最简单方法。
+
+### 来自单一仓库
+
+```bash
+# From the root
+bun run dev
+
+# Or target the studio package directly
+bun run --filter @hyperframes/studio dev
+```
+
+## 包裹出口
+
+工作室有两个入口点：
+
+| 进口 | 描述 |
+|--------|-------------|
+| `@hyperframes/studio` | React 组件、钩子和类型 |
+| `@hyperframes/studio/tailwind-preset` | 用于工作室样式的 Tailwind CSS 预设 |
+
+对等依赖项：`react`（18 或 19）、`react-dom`（18 或 19）、`zustand`（4 或 5）。
+
+## 成分
+
+### 布局
+
+```typescript
+import { NLELayout, NLEPreview, CompositionBreadcrumb } from '@hyperframes/studio';
+import type { CompositionLevel } from '@hyperframes/studio';
+
+// Main NLE (Non-Linear Editor) layout container
+<NLELayout>
+  {/* Preview, timeline, and editor panels */}
+</NLELayout>
+
+// Preview panel
+<NLEPreview />
+
+// Breadcrumb navigation for nested compositions
+<CompositionBreadcrumb levels={levels} />
+```
+
+### 玩家和时间轴
+
+```typescript
+import {
+  Player,
+  PlayerControls,
+  Timeline,
+  PreviewPanel,
+  AgentActivityTrack,
+} from '@hyperframes/studio';
+import type { AgentActivity, TimelineElement, ActiveEdits } from '@hyperframes/studio';
+
+// Embed the preview player
+<Player />
+
+// Playback controls (play, pause, seek, frame-step)
+<PlayerControls />
+
+// Timeline editor with scrubber
+<Timeline />
+
+// Preview display area
+<PreviewPanel />
+
+// Activity visualization track (for agent workflows)
+<AgentActivityTrack activities={activities} />
+```
+
+### 编辑器组件
+
+```typescript
+import { SourceEditor, PropertyPanel, FileTree } from '@hyperframes/studio';
+
+// Code editor (CodeMirror-based) for HTML, CSS, and JavaScript
+<SourceEditor />
+
+// Property inspector for selected elements
+<PropertyPanel />
+
+// Project file browser
+<FileTree />
+```
+
+### 完整申请
+
+```typescript
+import { StudioApp } from '@hyperframes/studio';
+
+// The complete studio application (wraps all components)
+<StudioApp />
+```
+
+## 挂钩
+
+### `useTimelinePlayer`
+
+管理播放器状态和播放控制：
+
+```typescript
+import { useTimelinePlayer } from '@hyperframes/studio';
+
+const player = useTimelinePlayer();
+// player.play(), player.pause(), player.seek(time), player.stepForward(), player.stepBackward()
+```
+
+### `usePlayerStore`
+
+Zustand 存储玩家状态：
+
+```typescript
+import { usePlayerStore, liveTime, formatTime } from '@hyperframes/studio';
+
+const store = usePlayerStore();
+// Access current time, duration, playing state, etc.
+
+// Format time for display
+const display = formatTime(liveTime.current);
+```
+
+### `useCodeEditor`
+
+代码编辑器状态及编辑功能：
+
+```typescript
+import { useCodeEditor } from '@hyperframes/studio';
+
+const editor = useCodeEditor();
+// editor.code, editor.setCode(), editor.diff, editor.onChange()
+```
+
+### `useElementPicker`
+
+从预览中选择元素：
+
+```typescript
+import { useElementPicker } from '@hyperframes/studio';
+
+const picker = useElementPicker();
+// picker.selectedElement, picker.selectElement(id), picker.clearSelection()
+```
+
+## 特征
+
+### 实时预览
+
+该工作室使用 Hyperframes 运行时在 iframe 中渲染您的作品。您在预览中看到的正是渲染期间捕获的内容 - 相同的运行时代码、相同的搜索逻辑、相同的剪辑生命周期。
+
+对 HTML 的更改会通过热重载自动获取，因此您可以在编辑器中编辑 `index.html` 并在几毫秒内在浏览器中查看结果。
+
+<Note>
+  预览的*视觉*输出与渲染完全匹配。实时*播放流畅度*取决于您的硬件，因为预览实际上以 30/60fps 在浏览器中播放合成内容。渲染没有这个限制——它通过搜索驱动的管道单独捕获每个帧，因此昂贵的帧使渲染速度变慢，但永远不会下降。如果您在预览中看到卡顿，但渲染的 mp4 很干净，这是正常的。请参阅 [性能](/guides/performance) 了解最常导致该问题的模式。
+</Note>
+
+### 时间轴视图
+
+时间线面板提供了作品结构的直观表示：
+
+- 每个剪辑在其轨道上显示为彩色条
+- 条形位置和宽度反映 `data-start` 和 `data-duration`
+- 视觉上较高的行呈现在前面；较低的行呈现在下方
+- 相对时序参考（例如，`data-start="intro"`）被解析并显示为绝对位置
+
+这使得您可以轻松理解具有许多重叠剪辑的复杂作品的时间结构。
+
+### 时间线编辑
+
+时间线支持直接保留到 HTML 源中的移动和修剪操作。
+
+有关以下内容的完整细分：
+
+- 今天时间线编辑可以做什么
+- 每个操作如何映射到 `data-start`、`data-duration`、`data-track-index` 和 `z-index`
+- 哪些剪辑类型支持开始修剪
+- 当前的局限性和思维模式
+
+请参阅[时间线编辑](/guides/timeline-editing)。
+
+### 播放器控制
+
+工作室包括一整套播放控件：
+
+- **播放/暂停** — 开始和停止播放
+- **搜索** — 单击时间轴上的任意位置可跳转到该点
+- **擦洗** — 拖动播放头逐帧擦洗合成
+- **帧步进** — 一次前进或后退一帧以实现精确定位
+
+### 热重载
+
+无需重新启动服务器即可检测并应用文件更改。预览会尽可能保持当前播放位置，因此您可以在 5 秒标记处调整动画，而无需在每次保存后返回到该位置。
+
+## 建筑学
+
+该工作室是一个 React 应用程序，其结构如下：
+
+1. **iframe 预览** — 您的合成 HTML 加载到注入了 Hyperframes 运行时的独立 iframe 中。这可确保预览使用与生产相同的渲染路径。
+
+2. **运行时桥** — 工作室通过 `postMessage` 与 iframe 进行通信，以控制播放（播放、暂停、搜索）并接收状态更新（当前时间、持续时间、准备情况）。
+
+3. **时间轴组件** — 使用 `@hyperframes/core` 解析合成以提取剪辑计时数据并渲染可视时间轴面板。
+
+4. **文件观察器** — 开发服务器（基于 Vite）监视您的项目文件，并在检测到更改时触发热模块替换。
+
+## Tailwind CSS 预设
+
+该工作室导出 Tailwind CSS 预设以实现一致的样式：
+
+```typescript
+// tailwind.config.ts
+import studioPreset from '@hyperframes/studio/tailwind-preset';
+
+export default {
+  presets: [studioPreset],
+  // ... your config
+};
+```
+
+## 相关套餐
+
+<CardGroup cols={2}>
+  <Card title="命令行界面" icon="terminal" href="/packages/cli">
+    通过 `npx hyperframes preview` 启动工作室——这是预览作品的最简单方法。
+  </Card>
+  <Card title="核" icon="cube" href="/packages/core">
+    工作室用于预览和时间线渲染的类型、解析和运行时。
+  </Card>
+  <Card title="制片人" icon="film" href="/packages/producer">
+    将您在工作室中构建的作品渲染为完成的 MP4 文件。
+  </Card>
+  <Card title="引擎" icon="gear" href="/packages/engine">
+    为您的作品渲染提供支持的捕捉引擎。
+  </Card>
+</CardGroup>
